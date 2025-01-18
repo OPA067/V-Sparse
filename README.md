@@ -92,7 +92,7 @@ main_retrieval.py \
 --output_dir experiments/MSRVTT
 ```
 
-#### Testing
+#### 💪 Testing
 ```shell
 CUDA_VISIBLE_DEVICES=0 \
 python -m torch.distributed.launch \
@@ -120,6 +120,7 @@ main_retrieval.py \
 
 ### Video Question Answering
 The code for this module refers to the directory V-Sparse/VQA.
+#### 💪 Training
 ```shell
 CUDA_VISIBLE_DEVICES=0 \
 python -m torch.distributed.launch \
