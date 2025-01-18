@@ -17,8 +17,6 @@
 <img src="figures/CTF.png" width="800px">  
 </div>
 
-
-
 ## 😍 Visualization
 
 #### Example 1
