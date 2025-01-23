@@ -1,33 +1,17 @@
 <div align="left">
   
-# 💡V-Sparse: Temporal-Spatial Visual Compression and Coarse-to Fine Alignment for Text-Video Retrieval
+# 🔥 V-Sparse: Temporal-Spatial Visual Compression and Coarse-to Fine Alignment for Text-Video Retrieval
 
 ## 📣 Updates
 * **[2025/01/18]**: We have released the complete training and testing code.
+* **[2025/01/23]**: We have released the complete video Q&A code.
 
 ## ⚡ Framework
 
 #### Video Semantic Compression Framework
-<div align="center">
-<img src="figures/Framework.png" width="800px">  
-</div>
-
 #### Coarse-to-Fine Alignment Framework
-<div align="center">
-<img src="figures/CTF.png" width="800px">  
-</div>
 
 ## 😍 Visualization
-
-#### Example 1
-<div align=center>
-<img src="figures/Vis-1.png" width="800px">
-</div>
-
-#### Example 2
-<div align=center>
-<img src="figures/Vis-2.png" width="800px">
-</div>
 
 ## 🚀 Quick Start
 ### Setup
@@ -54,20 +38,22 @@ wget https://openaipublic.azureedge.net/clip/models/40d365715913c9da98579312b702
 
 <div align=center>
 
-|       Datasets        |                             Download Link                              |
-|:---------------------:|:----------------------------------------------------------------------:|
-|        MSRVTT         |      [Download](http://ms-multimedia-challenge.com/2017/dataset)       |  
-|         MSVD          | [Download](https://www.cs.utexas.edu/users/ml/clamp/videoDescription/) | 
-| ActivityNet |           [Download](http://activity-net.org/download.html)            | 
-| Charades |         [Download](https://github.com/activitynet/ActivityNet)         |  
-| DiDeMo |       [Download](https://github.com/LisaAnne/LocalizingMoments)        | 
-| VATEX |                              [Download](https://eric-xw.github.io/vatex-website/download.html)                              | 
+|  Datasets   |                             Download Link                              |                Training weights                |
+|:-----------:|:----------------------------------------------------------------------:|:----------------------------------------------:|
+|   MSRVTT    |      [Download](http://ms-multimedia-challenge.com/2017/dataset)       | [Download](https://github.com/OPA067/V-Sparse) |
+|    LSMDC    |  [Download](https://sites.google.com/site/describingmovies/download)   |   [Download](https://github.com/OPA067/V-Sparse)    |
+|    MSVD     | [Download](https://www.cs.utexas.edu/users/ml/clamp/videoDescription/) |   [Download](https://github.com/OPA067/V-Sparse)    |
+| ActivityNet |           [Download](http://activity-net.org/download.html)            |   [Download](https://github.com/OPA067/V-Sparse)    |
+|  Charades   |         [Download](https://github.com/activitynet/ActivityNet)         |   [Download](https://github.com/OPA067/V-Sparse)    |
+|   DiDeMo    |       [Download](https://github.com/LisaAnne/LocalizingMoments)        |   [Download](https://github.com/OPA067/V-Sparse)    |
+|    VATEX    |   [Download](https://eric-xw.github.io/vatex-website/download.html)    |   [Download](https://github.com/OPA067/V-Sparse)    |                      | 
 
 </div>
 
 ### Text-Video Retrieval
-#### 💪 Training
-Run the following training code to resume the above results. Take MSRVTT as an example.
+#### 💪 Text-Video Retrieval Training
+The training instructions for all datasets are given below, where "--split" needs to be specified according to the dataset size.
+##### MSRVTT
 ```shell
 CUDA_VISIBLE_DEVICES=0 \
 python -m torch.distributed.launch \
@@ -91,8 +77,56 @@ main_retrieval.py \
 --split_batch 8 \
 --output_dir experiments/MSRVTT
 ```
-
-#### 💪 Testing
+#### LSMDC
+```shell
+CUDA_VISIBLE_DEVICES=0 \
+python -m torch.distributed.launch \
+--master_port 2502 \
+--nproc_per_node=1 \
+main_retrieval.py \
+--do_train 1 \
+--workers 8 \
+--n_display 100 \
+--epochs 5 \
+--lr 1e-4 \
+--coef_lr 1e-3 \
+--batch_size 32 \
+--batch_size_val 32 \
+--anno_path LSMDC \
+--video_path LSMDC \
+--datatype lsmdc \
+--max_words 24 \
+--max_frames 12 \
+--video_framerate 1 \
+--split_batch 9 \
+--output_dir experiments/LSMDC
+```
+##### DiDeMo
+```shell
+CUDA_VISIBLE_DEVICES=0 \
+python -m torch.distributed.launch \
+--master_port 2502 \
+--nproc_per_node=1 \
+main_retrieval.py \
+--do_train 1 \
+--workers 8 \
+--n_display 1 \
+--epochs 5 \
+--lr 1e-4 \
+--coef_lr 1e-3 \
+--batch_size 32 \
+--batch_size_val 32 \
+--anno_path DiDeMo \
+--video_path DiDeMo/videos \
+--datatype didemo \
+--max_words 64 \
+--max_frames 64 \
+--video_framerate 1 \
+--split_batch 17 \
+--output_dir experiments/DiDeMo
+```
+### ......
+#### 💪 Text-Video Retrieval Testing
 ```shell
 CUDA_VISIBLE_DEVICES=0 \
 python -m torch.distributed.launch \
