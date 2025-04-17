@@ -12,7 +12,8 @@ import os
 import time
 import argparse
 
-from VQA.models.modeling_qa import VSC_HA_VQA
+from VQA.models.modeling_qa import V_Sparse_VQA
+from models.modeling import V_Sparse
 from models.tokenization_clip import SimpleTokenizer as ClipTokenizer
 from models.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 from models.optimization import BertAdam
@@ -23,7 +24,7 @@ from utils.metrics_qa import accuracy, AverageMeter
 torch.distributed.init_process_group(backend="gloo")
 global logger
 
-def get_args(description='VQA'):
+def get_args(description='V-Sparse of VQA'):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--do_pretrain", action='store_true', help="Whether to run training.")
     parser.add_argument("--do_train", action='store_true', help="Whether to run training.")
@@ -173,7 +174,7 @@ def init_model(args, device, n_gpu, local_rank):
         model_state_dict = None
 
     cache_dir = args.cache_dir if args.cache_dir else os.path.join(str(PYTORCH_PRETRAINED_BERT_CACHE), 'distributed')
-    model = VSC_HA_VQA.from_pretrained(args.cross_model, cache_dir=cache_dir, state_dict=model_state_dict, task_config=args)
+    model = V_Sparse_VQA.from_pretrained(args.cross_model, cache_dir=cache_dir, state_dict=model_state_dict, task_config=args)
 
     model.to(device)
 
@@ -286,7 +287,7 @@ def load_model(epoch, args, n_gpu, device, model_file=None):
             logger.info("Model loaded from %s", model_file)
         # Prepare model
         cache_dir = args.cache_dir if args.cache_dir else os.path.join(str(PYTORCH_PRETRAINED_BERT_CACHE), 'distributed')
-        model = VSC_HA_VQA.from_pretrained(args.cross_model, cache_dir=cache_dir, state_dict=model_state_dict, task_config=args)
+        model = V_Sparse_VQA.from_pretrained(args.cross_model, cache_dir=cache_dir, state_dict=model_state_dict, task_config=args)
 
         model.to(device)
     else:

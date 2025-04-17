@@ -7,15 +7,14 @@ from torch.nn import CrossEntropyLoss
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 import torch.nn.functional as F
 
-from differential_topk import VisualTokenSelection
+from VQA.models.alignmentCoarse import alignmentCoarse
+from VQA.models.alignmentFine import alignmentFine
+from VQA.models.alignmentMedium import alignmentMedium
 from module_clip import CLIP, convert_weights, _PT_NAME
 from module_cross import CrossModel, Transformer as TransformerClip
-from until_module import LayerNorm, AllGather, AllGather2, CrossEn, MSE, ArcCrossEn, KL
-import numpy as np
-from cluster import CTM, TCBlock
-from video_pooling import video_pooling
-from video_spliting import video_spliting
-from video_transfomer import video_transformer
+from until_module import LayerNorm, AllGather, AllGather2, CrossEn, MSE, KL
+from cluster import FCM, Att_Block, PCM
+
 
 allgather = AllGather.apply
 allgather2 = AllGather2.apply
@@ -28,9 +27,9 @@ class ResidualLinear(nn.Module):
         x = x + self.fc_relu(x)
         return x
 
-class VSC_HA_VQA(nn.Module):
+class V_Sparse_VQA(nn.Module):
     def __init__(self, config):
-        super(VSC_HA_VQA, self).__init__()
+        super(V_Sparse_VQA, self).__init__()
 
         self.config = config
         self.interaction = config.interaction
@@ -115,26 +114,26 @@ class VSC_HA_VQA(nn.Module):
 
         self.apply(self.init_weights)
 
-        # Frames
-        self.v_ctm_f = CTM(sample_ratio=0.75, embed_dim=512, dim_out=512, k=3)
-        self.v_block_f = TCBlock(dim=512, num_heads=8)
+        # 1. First, semantic compression of frames in the temporal dimension.
+        self.v_fcm_f = FCM(sample_ratio=0.75, embed_dim=embed_dim, dim_out=embed_dim, k=3)
+        self.v_att_block_f = Att_Block(dim=embed_dim, num_heads=8)
 
-        # Patches
-        self.v_ctm_p_1 = CTM(sample_ratio=0.5, embed_dim=512, dim_out=512, k=3)
-        self.v_block_p_1 = TCBlock(dim=512, num_heads=8)
-        self.v_ctm_p_2 = CTM(sample_ratio=0.25, embed_dim=512, dim_out=512, k=3)
-        self.v_block_p_2 = TCBlock(dim=512, num_heads=8)
-        self.v_ctm_p_3 = CTM(sample_ratio=0.125, embed_dim=512, dim_out=512, k=3)
-        self.v_block_p_3 = TCBlock(dim=512, num_heads=8)
+        # 2. Next, semantic compression of patches in the spatial dimension.
+        self.v_pcm_p_1 = PCM(sample_ratio=0.5, embed_dim=embed_dim, dim_out=embed_dim, k=3)
+        self.v_att_block_p_1 = Att_Block(dim=embed_dim, num_heads=8)
+        self.v_pcm_p_2 = PCM(sample_ratio=0.25, embed_dim=embed_dim, dim_out=embed_dim, k=3)
+        self.v_att_block_p_2 = Att_Block(dim=embed_dim, num_heads=8)
+        self.v_pcm_p_3 = PCM(sample_ratio=0.125, embed_dim=embed_dim, dim_out=embed_dim, k=3)
+        self.v_att_block_p_3 = Att_Block(dim=embed_dim, num_heads=8)
 
-        embed_dim = state_dict["text_projection"].shape[1]
-        self.visual_token_selector = VisualTokenSelection(self.config.max_frames, embed_dim, topk=3)
-        self.video_transformer = video_transformer()
-        self.video_pooling = video_pooling()
-        self.video_spliting = video_spliting()
+        # 3. Then， coarse, medium, and fine-grained alignment.
+        self.alignmentCoarse = alignmentCoarse()
+        self.alignmentMedium = alignmentMedium()
+        self.alignmentFine = alignmentFine()
 
-        self.mse = MSE()
+        # 4. Finally, distillation between similarity matrices of coarse and fine granularity for alignment.
         self.kl = KL()
+        self.mse = MSE()
 
         self.t_proj = nn.Linear(transformer_width, 4 * transformer_width)
         self.v_proj = nn.Linear(transformer_width, 4 * transformer_width)
@@ -176,8 +175,10 @@ class VSC_HA_VQA(nn.Module):
         else:
             loss = 0
         return loss
-    def forward(self, text_ids, text_mask, video, video_mask, idx=None, labels=None):
-        text_ids = text_ids.view(-1, text_ids.shape[-1])
+
+    def forward(self, text, text_mask, video, video_mask, idx=None, labels=None):
+
+        text = text.view(-1, text.shape[-1])
         text_mask = text_mask.view(-1, text_mask.shape[-1])
         video_mask = video_mask.view(-1, video_mask.shape[-1])
         video = torch.as_tensor(video).float()
@@ -188,16 +189,17 @@ class VSC_HA_VQA(nn.Module):
             b, pair, bs, ts, channel, h, w = video.shape
             video = video.view(b * pair * bs * ts, channel, h, w)
 
-        text_feat, video_feat, visual_feat = self.get_text_video_feat(text_ids, text_mask, video, video_mask, shaped=True)
+        s_feat, w_feat, f_feat, p_feat = self.get_text_video_feat(text, text_mask, video, video_mask, shaped=True)
 
         if self.training:
             if torch.cuda.is_available():
                 idx = allgather(idx, self.config)
-                text_feat = allgather(text_feat, self.config)
-                video_feat = allgather(video_feat, self.config)
                 text_mask = allgather(text_mask, self.config)
+                s_feat = allgather(s_feat, self.config)
+                w_feat = allgather(w_feat, self.config)
                 video_mask = allgather(video_mask, self.config)
-                visual_feat = allgather(visual_feat, self.config)
+                f_feat = allgather(f_feat, self.config)
+                p_feat = allgather(p_feat, self.config)
                 torch.distributed.barrier()
 
             idx = idx.view(-1, 1)
@@ -206,53 +208,69 @@ class VSC_HA_VQA(nn.Module):
             logit_scale = self.clip.logit_scale.exp()
             loss = 0.
 
-            # Frames Features
-            v_idx_token = torch.arange(video_feat.size(1))[None, :].repeat(video_feat.size(0), 1)
-            v_agg_weight = video_feat.new_ones(video_feat.size(0), video_feat.size(1), 1)
-            v_mask = torch.ones(video_feat.size(0), video_feat.size(1)).to(video_feat.device)
-            v_token_dict = {'x': video_feat,
-                            'token_num': video_feat.size(1),
-                            'idx_token': v_idx_token,
-                            'agg_weight': v_agg_weight,
-                            'mask': v_mask.detach()}
-            v_token_dict = self.v_block_f(self.v_ctm_f(v_token_dict), text_feat)
-            video_feat_f = v_token_dict["x"]
+            """Add w_idx_token:
+            w_idx_token = torch.arange(w_feat.size(1))[None, :].repeat(w_feat.size(0), 1)
+            w_agg_weight = w_feat.new_ones(w_feat.size(0), w_feat.size(1), 1)
+            w_mask = torch.ones(w_feat.size(0), w_feat.size(1)).to(w_feat.device)
+            w_token_dict = {'x': w_feat,
+                            'token_num': w_feat.size(1),
+                            'idx_token': w_idx_token,
+                            'agg_weight': w_agg_weight,
+                            'mask': w_mask.detach()}"""
 
-            # Patches Features
-            v_idx_token = torch.arange(visual_feat.size(1))[None, :].repeat(visual_feat.size(0), 1)
-            v_agg_weight = visual_feat.new_ones(visual_feat.size(0), visual_feat.size(1), 1)
-            v_mask = torch.ones(visual_feat.size(0), visual_feat.size(1)).to(visual_feat.device)
-            v_token_dict = {'x': visual_feat,
-                            'token_num': visual_feat.size(1),
-                            'idx_token': v_idx_token,
-                            'agg_weight': v_agg_weight,
-                            'mask': v_mask.detach()}
-            v_token_dict = self.v_block_p_1(self.v_ctm_p_1(v_token_dict), text_feat)
-            v_token_dict = self.v_block_p_2(self.v_ctm_p_2(v_token_dict), text_feat)
-            v_token_dict = self.v_block_p_3(self.v_ctm_p_3(v_token_dict), text_feat)
-            video_feat_p = v_token_dict["x"]
-            video_feat = torch.cat([video_feat_f, video_feat_p], dim=1)
+            s_idx_token = torch.arange(s_feat.size(1))[None, :].repeat(s_feat.size(0), 1)
+            s_agg_weight = s_feat.new_ones(s_feat.size(0), s_feat.size(1), 1)
+            s_mask = torch.ones(s_feat.size(0), s_feat.size(1)).to(s_feat.device)
+            s_token_dict = {'x': s_feat,
+                            'token_num': s_feat.size(1),
+                            'idx_token': s_idx_token,
+                            'agg_weight': s_agg_weight,
+                            'mask': s_mask.detach()}
 
-            coarse_t, coarse_v, output_coarse = self.video_pooling(text_feat, video_feat)
+            # ===>>> frame features compression
+            f_idx_token = torch.arange(f_feat.size(1))[None, :].repeat(f_feat.size(0), 1)
+            f_agg_weight = f_feat.new_ones(f_feat.size(0), f_feat.size(1), 1)
+            f_mask = torch.ones(f_feat.size(0), f_feat.size(1)).to(f_feat.device)
+            f_token_dict = {'x': f_feat,
+                            'token_num': f_feat.size(1),
+                            'idx_token': f_idx_token,
+                            'agg_weight': f_agg_weight,
+                            'mask': f_mask.detach()}
+            f_token_dict = self.v_att_block_f(self.v_fcm_f(f_token_dict), s_token_dict)
+            f_feat = f_token_dict["x"]
+
+            # ===>>> patch features compression
+            p_idx_token = torch.arange(p_feat.size(1))[None, :].repeat(p_feat.size(0), 1)
+            p_agg_weight = p_feat.new_ones(p_feat.size(0), p_feat.size(1), 1)
+            p_mask = torch.ones(p_feat.size(0), p_feat.size(1)).to(p_feat.device)
+            p_token_dict = {'x': p_feat,
+                            'token_num': p_feat.size(1),
+                            'idx_token': p_idx_token,
+                            'agg_weight': p_agg_weight,
+                            'mask': p_mask.detach()}
+            p_token_dict = self.v_att_block_p_1(self.v_pcm_p_1(p_token_dict), s_token_dict)
+            p_token_dict = self.v_att_block_p_2(self.v_pcm_p_2(p_token_dict), s_token_dict)
+            p_token_dict = self.v_att_block_p_3(self.v_pcm_p_3(p_token_dict), s_token_dict)
+            p_feat = p_token_dict["x"]
+            v_feat = torch.cat([f_feat, p_feat], dim=1)
+            s_feat = s_feat.squeeze(1)
+
+            # Example alignment coarse features
+            coarse_t, coarse_v, CoarseScore = self.alignmentCoarse(s_feat, v_feat)
             coarse_t = self.t_proj(coarse_t)
             coarse_v = self.v_proj(coarse_v)
             input = torch.cat((coarse_t, coarse_v), dim=-1)
             coarse_output = self.dropout(input)
             logits = self.classifier(coarse_output)
-            loss = loss + self.loss_fct(output_coarse * logit_scale) + self.loss_fct(output_coarse.T * logit_scale) + self.calc_loss(logits, labels)
+            loss = loss + self.loss_fct(CoarseScore * logit_scale) + self.loss_fct(CoarseScore.T * logit_scale) + self.calc_loss(logits, labels)
 
-            medium_v = self.video_transformer(text_feat, video_feat)
-            medium_t = text_feat
+            medium_t, medium_v, MediumScore = self.alignmentMedium(s_feat, v_feat)
             medium_t = self.t_proj_1(medium_t)
             medium_v = self.v_proj_1(medium_v)
             input = torch.cat((medium_t, medium_v), dim=-1)
-            coarse_output = self.dropout_1(input)
-            logits = self.classifier_1(coarse_output)
-            output_medium = self.sim_matrix_training(text_feat, medium_v)
-            loss = loss + self.loss_fct(output_medium * logit_scale) + self.loss_fct(output_medium.T * logit_scale) + self.calc_loss(logits, labels)
-
-            output_fine = self.video_spliting(text_feat, video_feat)
-            loss = loss + self.loss_fct(output_fine * logit_scale) + self.loss_fct(output_fine.T * logit_scale)
+            medium_output = self.dropout(input)
+            logits = self.classifier_1(medium_output)
+            loss = loss + self.loss_fct(MediumScore * logit_scale) + self.loss_fct(MediumScore.T * logit_scale) + self.calc_loss(logits, labels)
 
             return loss
         else:
@@ -266,16 +284,17 @@ class VSC_HA_VQA(nn.Module):
 
         return sims
 
-    def get_text_feat(self, text_ids, text_mask, shaped=False):
+    def get_text_feat(self, text, text_mask, shaped=False):
         if shaped is False:
-            text_ids = text_ids.view(-1, text_ids.shape[-1])
+            text = text.view(-1, text.shape[-1])
             text_mask = text_mask.view(-1, text_mask.shape[-1])
 
-        bs_pair = text_ids.size(0)
-        text_feat = self.clip.encode_text(text_ids, return_hidden=False, mask=text_mask)
-        text_feat = text_feat.float()
-        text_feat = text_feat.view(bs_pair, -1, text_feat.size(-1)).squeeze(1)
-        return text_feat
+        bs_pair = text.size(0)
+        s_feat, w_feat = self.clip.encode_text(text, return_hidden=True, mask=text_mask)
+        s_feat, w_feat = s_feat.float(), w_feat.float()
+        s_feat = s_feat.view(bs_pair, -1, s_feat.size(-1))
+        w_feat = w_feat.view(bs_pair, -1, w_feat.size(-1))
+        return s_feat, w_feat
 
     def get_video_feat(self, video, video_mask, shaped=False):
         if shaped is False:
@@ -289,18 +308,16 @@ class VSC_HA_VQA(nn.Module):
                 video = video.view(b * pair * bs * ts, channel, h, w)
 
         bs_pair, n_v = video_mask.size()
-        video_feat, visual_feat = self.clip.encode_image(video, return_hidden=True)
-        video_feat = video_feat.float()
-        visual_feat = visual_feat.float()
-        video_feat = video_feat.float().view(bs_pair, -1, video_feat.size(-1))
-        visual_feat = visual_feat.float().view(bs_pair, -1, visual_feat.size(-1))
-        # visual_feat = self.visual_token_selector(visual_feat)
+        f_feat, p_feat = self.clip.encode_image(video, return_hidden=True)
+        f_feat, p_feat = f_feat.float(), p_feat.float()
+        f_feat = f_feat.float().view(bs_pair, -1, f_feat.size(-1))
+        p_feat = p_feat.float().view(bs_pair, -1, p_feat.size(-1))
 
-        return video_feat, visual_feat
+        return f_feat, p_feat
 
-    def get_text_video_feat(self, text_ids, text_mask, video, video_mask, shaped=False):
+    def get_text_video_feat(self, text, text_mask, video, video_mask, shaped=False):
         if shaped is False:
-            text_ids = text_ids.view(-1, text_ids.shape[-1])
+            text = text.view(-1, text.shape[-1])
             text_mask = text_mask.view(-1, text_mask.shape[-1])
             video_mask = video_mask.view(-1, video_mask.shape[-1])
             video = torch.as_tensor(video).float()
@@ -311,10 +328,10 @@ class VSC_HA_VQA(nn.Module):
                 b, pair, bs, ts, channel, h, w = video.shape
                 video = video.view(b * pair * bs * ts, channel, h, w)
 
-        text_feat = self.get_text_feat(text_ids, text_mask, shaped=True)
-        video_feat, visual_feat = self.get_video_feat(video, video_mask, shaped=True)
+        s_feat, w_feat = self.get_text_feat(text, text_mask, shaped=True)
+        f_feat, p_feat = self.get_video_feat(video, video_mask, shaped=True)
 
-        return text_feat, video_feat, visual_feat
+        return s_feat, w_feat, f_feat, p_feat
 
     def get_video_avg_feat(self, video_feat, video_mask):
         video_mask_un = video_mask.to(dtype=torch.float).unsqueeze(-1)
@@ -361,68 +378,8 @@ class VSC_HA_VQA(nn.Module):
         return video_feat
 
     def get_similarity_logits(self, text_ids, text_mask, video, video_mask, idx=None, labels=None):
-        text_ids = text_ids.view(-1, text_ids.shape[-1])
-        text_mask = text_mask.view(-1, text_mask.shape[-1])
-        video_mask = video_mask.view(-1, video_mask.shape[-1])
-        video = torch.as_tensor(video).float()
-        if len(video.size()) == 5:
-            b, n_v, d, h, w = video.shape
-            video = video.view(b * n_v, d, h, w)
-        else:
-            b, pair, bs, ts, channel, h, w = video.shape
-            video = video.view(b * pair * bs * ts, channel, h, w)
-
-        text_feat, video_feat, visual_feat = self.get_text_video_feat(text_ids, text_mask, video, video_mask, shaped=True)
-
-        idx = idx.view(-1, 1)
-        idx_all = idx.t()
-        pos_idx = torch.eq(idx, idx_all).float()
-        logit_scale = self.clip.logit_scale.exp()
-        loss = 0.
-
-        # Frames Features
-        v_idx_token = torch.arange(video_feat.size(1))[None, :].repeat(video_feat.size(0), 1)
-        v_agg_weight = video_feat.new_ones(video_feat.size(0), video_feat.size(1), 1)
-        v_mask = torch.ones(video_feat.size(0), video_feat.size(1)).to(video_feat.device)
-        v_token_dict = {'x': video_feat,
-                        'token_num': video_feat.size(1),
-                        'idx_token': v_idx_token,
-                        'agg_weight': v_agg_weight,
-                        'mask': v_mask.detach()}
-        v_token_dict = self.v_block_f(self.v_ctm_f(v_token_dict), text_feat)
-        video_feat_f = v_token_dict["x"]
-
-        # Patches Features
-        v_idx_token = torch.arange(visual_feat.size(1))[None, :].repeat(visual_feat.size(0), 1)
-        v_agg_weight = visual_feat.new_ones(visual_feat.size(0), visual_feat.size(1), 1)
-        v_mask = torch.ones(visual_feat.size(0), visual_feat.size(1)).to(visual_feat.device)
-        v_token_dict = {'x': visual_feat,
-                        'token_num': visual_feat.size(1),
-                        'idx_token': v_idx_token,
-                        'agg_weight': v_agg_weight,
-                        'mask': v_mask.detach()}
-        v_token_dict = self.v_block_p_1(self.v_ctm_p_1(v_token_dict), text_feat)
-        v_token_dict = self.v_block_p_2(self.v_ctm_p_2(v_token_dict), text_feat)
-        v_token_dict = self.v_block_p_3(self.v_ctm_p_3(v_token_dict), text_feat)
-        video_feat_p = v_token_dict["x"]
-        video_feat = torch.cat([video_feat_f, video_feat_p], dim=1)
-
-        coarse_t, coarse_v, output_coarse = self.video_pooling(text_feat, video_feat)
-        coarse_t = self.t_proj(coarse_t)
-        coarse_v = self.v_proj(coarse_v)
-        input = torch.cat((coarse_t, coarse_v), dim=-1)
-        coarse_output = self.dropout(input)
-        logits_0 = self.classifier(coarse_output)
-
-        medium_v = self.video_transformer(text_feat, video_feat)
-        medium_t = text_feat
-        medium_t = self.t_proj_1(medium_t)
-        medium_v = self.v_proj_1(medium_v)
-        input = torch.cat((medium_t, medium_v), dim=-1)
-        coarse_output = self.dropout_1(input)
-        logits_1 = self.classifier_1(coarse_output)
-    
-        return (logits_0 + logits_1)/2.0
+        # ... ...
+        return
 
     @property
     def dtype(self):

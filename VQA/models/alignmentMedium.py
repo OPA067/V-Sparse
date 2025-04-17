@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class video_transformer(nn.Module):
+class alignmentMedium(nn.Module):
     def __init__(self, ):
-        super(video_transformer, self).__init__()
+        super(alignmentMedium, self).__init__()
         self.embed_dim = 512
         dropout = 0.3
 
@@ -49,10 +49,13 @@ class video_transformer(nn.Module):
         attention = attention.squeeze(1)
 
         attention = self.out_proj(attention)
-
         attn_out = self.layer_norm2(attention)
         linear_out = self.linear_proj(attn_out)
-        out = attn_out + self.dropout(linear_out)
-        out = self.layer_norm3(out)
+        video_embeds = attn_out + self.dropout(linear_out)
+        video_embeds = self.layer_norm3(video_embeds)
 
-        return out
+        text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
+        video_embeds = video_embeds / video_embeds.norm(dim=-1, keepdim=True)
+        sims = torch.mm(text_embeds, video_embeds.t())
+
+        return text_embeds, video_embeds, sims

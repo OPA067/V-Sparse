@@ -5,6 +5,7 @@
 ## 📣 Updates
 * **[2025/01/18]**: We have released the complete training and testing code.
 * **[2025/01/23]**: We have released the complete video Q&A code.
+* **[2025/04/17]**: We have revised some descriptions in the visual feature compression module.
 
 ## ⚡ Framework
 
@@ -77,6 +78,7 @@ main_retrieval.py \
 --split_batch 8 \
 --output_dir experiments/MSRVTT
 ```
+
 #### LSMDC
 ```shell
 CUDA_VISIBLE_DEVICES=0 \

@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-class video_spliting(nn.Module):
+class alignmentFine(nn.Module):
     def __init__(self,):
-        super(video_spliting, self).__init__()
+        super(alignmentFine, self).__init__()
 
         self.embed_dim = 512
         self.center = 8

@@ -5,7 +5,7 @@ python -m torch.distributed.launch \
 main_retrieval.py \
 --do_train 1 \
 --workers 8 \
---n_display 1 \
+--n_display 10 \
 --epochs 5 \
 --lr 1e-4 \
 --coef_lr 1e-3 \
@@ -14,8 +14,8 @@ main_retrieval.py \
 --anno_path DiDeMo \
 --video_path DiDeMo/videos \
 --datatype didemo \
---max_words 64 \
---max_frames 64 \
+--max_words 24 \
+--max_frames 12 \
 --video_framerate 1 \
 --split_batch 17 \
 --output_dir experiments/DiDeMo

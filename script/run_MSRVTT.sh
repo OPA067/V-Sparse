@@ -17,6 +17,6 @@ main_retrieval.py \
 --max_words 24 \
 --max_frames 12 \
 --video_framerate 1 \
---split_batch 8 \
+--split_batch 10 \
 --output_dir experiments/MSRVTT
 

@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-class video_pooling(nn.Module):
+class alignmentCoarse(nn.Module):
     def __init__(self, ):
-        super(video_pooling, self).__init__()
+        super(alignmentCoarse, self).__init__()
 
         self.embed_dim = 512
         self.temp = 5
@@ -20,9 +20,9 @@ class video_pooling(nn.Module):
 
         text_feat = text_feat / text_feat.norm(dim=-1, keepdim=True)
         video_feat = video_feat / video_feat.norm(dim=-1, keepdim=True)
+
         retrieve_logits = torch.einsum('ad,bvd->abv', [text_feat, video_feat])
         retrieve_logits = torch.einsum('abv,bv->ab', [retrieve_logits, video_weight])
-        video_feat = torch.einsum('bfd,bf->bd', [video_feat, video_weight])
 
-        return text_feat, video_feat, retrieve_logits
+        return retrieve_logits
 

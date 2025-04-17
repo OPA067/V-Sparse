@@ -45,13 +45,14 @@ class MSVD_DataLoader(Dataset):
         video_id_path_dict["train"] = os.path.join(self.anno_path, "train_list.txt")
         video_id_path_dict["val"] = os.path.join(self.anno_path, "val_list.txt")
         video_id_path_dict["test"] = os.path.join(self.anno_path, "test_list.txt")
-        caption_file = os.path.join(self.anno_path, "raw-captions.pkl")
+        # caption_file = os.path.join(self.anno_path, "raw-captions.pkl")
+        caption_file = os.path.join(self.anno_path, "captions_msvd.json")
 
         with open(video_id_path_dict[self.subset], 'r') as fp:
             video_ids = [itm.strip() for itm in fp.readlines()]
 
         with open(caption_file, 'rb') as f:
-            captions = pickle.load(f)
+            captions = json.load(f)
 
         video_dict = {}
         for root, dub_dir, video_files in os.walk(self.video_path):

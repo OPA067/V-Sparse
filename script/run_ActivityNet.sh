@@ -14,8 +14,8 @@ main_retrieval.py \
 --anno_path ActivityNet \
 --video_path ActivityNet/videos \
 --datatype activity \
---max_words 64 \
---max_frames 64 \
+--max_words 24 \
+--max_frames 12 \
 --video_framerate 1 \
 --split_batch 11 \
 --output_dir experiments/ActivityNet

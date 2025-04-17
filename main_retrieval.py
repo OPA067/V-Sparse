@@ -16,7 +16,7 @@ import torch
 
 from models.tokenization_clip import SimpleTokenizer as ClipTokenizer
 from dataloaders.data_dataloaders import DATALOADER_DICT
-from models.modeling import VSC_HA, AllGather
+from models.modeling import AllGather, V_Sparse
 from models.optimization import BertAdam
 from utils.metric_logger import MetricLogger
 from utils.metrics import compute_metrics, tensor_text_to_video_metrics, tensor_video_to_text_sim
@@ -31,21 +31,21 @@ allgather = AllGather.apply
 
 global logger
 
-def get_args(description='V-Sparse:Temporal-Spatial Visual Compression and Coarse-to-Fine Alignment for Text-Video Retrieval'):
+def get_args(description='V-Sparse: Temporal-Spatial Visual Compression and Coarse-to-Fine Alignment for Text-Video Retrieval'):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--do_train", type=int, default=0, help="Whether to run training.")
     parser.add_argument("--do_eval", type=int, default=0, help="Whether to run evaluation.")
 
-    parser.add_argument("--datatype", default="msrvtt", type=str, help="Point the dataset to finetune.")
+    parser.add_argument("--datatype", type=str, default="msrvtt", help="Point the dataset to finetune.")
     parser.add_argument('--anno_path', type=str, default='MSRVTT/anns', help='annotation path')
     parser.add_argument('--video_path', type=str, default='MSRVTT/videos', help='video path')
     parser.add_argument('--data_path', type=str, default='MSRVTT/', help='data pickle file path')
 
     parser.add_argument('--seed', type=int, default=42, help='random seed')
-    parser.add_argument('--workers', default=8, type=int, help='number of data loading workers (default: 4)')
+    parser.add_argument('--workers', type=int, default=8, help='number of data loading workers (default: 4)')
     parser.add_argument('--lr', type=float, default=1e-4, help='initial learning rate')
     parser.add_argument('--coef_lr', type=float, default=1e-3, help='coefficient for bert branch.')
-    parser.add_argument("--warmup_proportion", default=0.1, type=float, help="Proportion of training to perform linear learning rate warmup for. E.g., 0.1 = 10% of training.")
+    parser.add_argument("--warmup_proportion", type=float, default=0.1, help="Proportion of training to perform linear learning rate warmup for. E.g., 0.1 = 10% of training.")
     parser.add_argument('--weight_decay', type=float, default=0.2, help='weight decay')
     parser.add_argument('--epochs', type=int, default=5, help='upper epoch limit')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size')
@@ -58,17 +58,23 @@ def get_args(description='V-Sparse:Temporal-Spatial Visual Compression and Coars
 
     parser.add_argument("--device", default='cpu', type=str, help="cpu/cuda")
     parser.add_argument("--world_size", default=1, type=int, help="distribted training")
+    # maybe you should set as --local_rank based on system.
     parser.add_argument("--local_rank", default=0, type=int, help="distribted training")
     parser.add_argument("--distributed", default=0, type=int, help="multi machine DDP")
 
-    parser.add_argument('--n_display', type=int, default=50, help='Information display frequence')
-    parser.add_argument("--output_dir", default=None, type=str, required=True, help="The output directory where the model predictions and checkpoints will be written.")
-    parser.add_argument("--base_encoder", default="ViT-B/32", type=str, help="Choose a CLIP version")
+    parser.add_argument('--n_display', type=int, default=100, help='Information display frequence')
+    parser.add_argument("--output_dir", type=str, default=None, required=True, help="The output directory where the model predictions and checkpoints will be written.")
+    # base_encoder = ["ViT-B/32", "ViT-B/16"]
+    parser.add_argument("--base_encoder", type=str, default="ViT-B/32", help="Choose a CLIP version")
     parser.add_argument('--agg_module', type=str, default="seqTransf", choices=["None", "seqLSTM", "seqTransf"], help="choice a feature aggregation module for video.")
     parser.add_argument('--interaction', type=str, default='wti', help="interaction type for retrieval.")
     parser.add_argument('--num_hidden_layers', type=int, default=4)
-    parser.add_argument("--init_model", default=None, type=str, required=False, help="Initial model.")
+    parser.add_argument("--init_model", type=str, default=None, required=False, help="Initial model.")
+    # Different datasets have different split_batch settings, e.g, MSRVTT=25, DiDeMo=17
     parser.add_argument('--split_batch', type=int, default=32, help='test dataset split')
+    parser.add_argument('--alpha', type=float, default=1.0, help='hyper-parameters alpha')
+    parser.add_argument('--beta', type=float, default=1.0, help='hyper-parameters beta')
+    parser.add_argument('--gamma', type=float, default=1.0, help='hyper-parameters gamma')
 
     args = parser.parse_args()
 
@@ -106,7 +112,7 @@ def set_seed_logger(args):
     return args
 
 def build_model(args):
-    model = VSC_HA(args)
+    model = V_Sparse(args)
     if args.init_model:
         if not exists(args.init_model):
             raise FileNotFoundError
@@ -120,6 +126,7 @@ def build_dataloader(args):
 
     tokenizer = ClipTokenizer()
 
+    # Here you can add val datasets.
     test_dataloader, test_length = None, 0
     if DATALOADER_DICT[args.datatype]["test"] is not None:
         test_dataloader, test_length = DATALOADER_DICT[args.datatype]["test"](args, tokenizer)
@@ -187,7 +194,6 @@ def save_model(epoch, args, model, type_name=""):
     logger.info("Model saved to %s", output_model_file)
     return output_model_file
 
-
 def reduce_loss(loss, args):
     world_size = args.world_size
     if world_size < 2:
@@ -198,7 +204,7 @@ def reduce_loss(loss, args):
             loss /= world_size
     return loss
 
-def train_epoch(epoch, args, model, train_dataloader, device, n_gpu, optimizer, scheduler, global_step, max_steps, val_dataloader):
+def train_epoch(epoch, args, model, train_dataloader, device, n_gpu, optimizer, scheduler, global_step, max_steps):
     global logger
     global best_score
     global meters
@@ -216,8 +222,8 @@ def train_epoch(epoch, args, model, train_dataloader, device, n_gpu, optimizer, 
         if n_gpu == 1:
             batch = tuple(t.to(device=device, non_blocking=True) for t in batch)
 
-        text_ids, text_mask, video, video_mask, inds, idx = batch
-        loss = model(text_ids, text_mask, video, video_mask, idx, global_step)
+        text, text_mask, video, video_mask, idx, _ = batch
+        loss = model(text, text_mask, video, video_mask, idx, global_step)
 
         if n_gpu > 1:
             loss = loss.mean()
@@ -259,6 +265,7 @@ def train_epoch(epoch, args, model, train_dataloader, device, n_gpu, optimizer, 
                         "iteration: {step}/{len}/{iteration}/{max_iteration}, ",
                         "{meters}",
                         "lr: {lr}, ",
+                        "logit: {logit_scale}, ",
                         "memory: {memory:.2f}GB",
                     ]
                 ).format(
@@ -271,27 +278,30 @@ def train_epoch(epoch, args, model, train_dataloader, device, n_gpu, optimizer, 
                     max_iteration=max_steps,
                     meters=str(meters),
                     lr="/".join([str('%.9f' % itm) for itm in sorted(list(set(optimizer.get_lr())))]),
+                    logit_scale=logit_scale,
                     memory=torch.cuda.max_memory_allocated() / 1024.0 / 1024.0 / 1024.0,
                 )
             )
     total_loss = total_loss / len(train_dataloader)
     return total_loss, global_step
 
-def _run_on_single_gpu(model, t_mask_list, v_mask_list, t_feat_list, v_feat_list, vis_feat_list, split_batch=8):
+def _run_on_single_gpu(model, t_mask_list, s_feat_list, w_feat_list, v_mask_list, f_feat_list, p_feat_list, split_batch=8):
 
     sim_matrix = []
 
     batch_t_mask = torch.split(t_mask_list, split_batch)
+    batch_s_feat = torch.split(s_feat_list, split_batch)
+    batch_w_feat = torch.split(w_feat_list, split_batch)
+
     batch_v_mask = torch.split(v_mask_list, split_batch)
-    batch_t_feat = torch.split(t_feat_list, split_batch)
-    batch_v_feat = torch.split(v_feat_list, split_batch)
-    vis_feat_list = torch.split(vis_feat_list, split_batch)
+    batch_f_feat = torch.split(f_feat_list, split_batch)
+    batch_p_feat = torch.split(p_feat_list, split_batch)
 
     with torch.no_grad():
-        for idx1, (t_mask, t_feat) in tqdm(enumerate(zip(batch_t_mask, batch_t_feat))):
+        for idx1, (t_mask, s_feat, w_feat) in tqdm(enumerate(zip(batch_t_mask, batch_s_feat, batch_w_feat))):
             each_row = []
-            for idx2, (v_mask, v_feat, visual_feat) in enumerate(zip(batch_v_mask, batch_v_feat, vis_feat_list)):
-                logits = model.get_similarity_logits(t_feat, v_feat, visual_feat, t_mask, v_mask)
+            for idx2, (v_mask, f_feat, p_feat) in enumerate(zip(batch_v_mask, batch_f_feat, batch_p_feat)):
+                logits = model.get_similarity_logits(t_mask, s_feat, w_feat, v_mask, f_feat, p_feat)
                 logits = logits.cpu().detach().numpy()
                 each_row.append(logits)
             each_row = np.concatenate(tuple(each_row), axis=-1)
@@ -321,79 +331,95 @@ def eval_epoch(args, model, test_dataloader, device):
         logger.warning("sentence num: {}, video num: {}".format(sentence_num_, video_num_))
 
     model.eval()
-    batch_mask_t, batch_mask_v, batch_feat_t, batch_feat_v, batch_feat_vis, ids_t, ids_v = [], [], [], [], [], [], []
+    logger.info("V-Sparse begins to testing...")
+
+    # V-Sparse saves features list.
+    batch_index = []
+    ids_t, batch_mask_t, batch_feat_s, batch_feat_w = [], [], [], []
+    ids_v, batch_mask_v, batch_feat_f, batch_feat_p = [], [], [], []
+
     with torch.no_grad():
         tic = time.time()
         if multi_sentence_:
             total_video_num = 0
             for batch in tqdm(test_dataloader):
                 batch = tuple(t.to(device) for t in batch)
-                text_ids, text_mask, video, video_mask, inds, _ = batch
+                text, text_mask, video, video_mask, inds, index = batch
 
                 b, *_t = video.shape
-                text_feat = model.get_text_feat(text_ids, text_mask)
+                s_feat, w_feat = model.get_text_feat(text, text_mask)
                 ids_t.append(inds)
                 batch_mask_t.append(text_mask)
-                batch_feat_t.append(text_feat)
+                batch_feat_s.append(s_feat)
+                batch_feat_w.append(w_feat)
 
-                video_feat, visual_feat = model.get_video_feat(video, video_mask)
+                f_feat, p_feat = model.get_video_feat(video, video_mask)
                 ids_v.append(inds)
-                batch_feat_v.append(video_feat)
+                batch_feat_f.append(f_feat)
                 batch_mask_v.append(video_mask)
-                batch_feat_vis.append(visual_feat)
+                batch_feat_p.append(p_feat)
+
+                batch_index.append(index)
 
                 total_video_num += b
 
             ids_t = torch.cat(ids_t, dim=0).squeeze()
+            ids_v = torch.cat(ids_v, dim=0).squeeze()
             batch_mask_t = torch.cat(batch_mask_t, dim=0)
+            batch_feat_s = torch.cat(batch_feat_s, dim=0)
+            batch_feat_w = torch.cat(batch_feat_w, dim=0)
             batch_mask_v = torch.cat(batch_mask_v, dim=0)
-            batch_feat_t = torch.cat(batch_feat_t, dim=0)
-            batch_feat_v = torch.cat(batch_feat_v, dim=0)
-            batch_feat_vis = torch.cat(batch_feat_vis, dim=0)
+            batch_feat_f = torch.cat(batch_feat_f, dim=0)
+            batch_feat_p = torch.cat(batch_feat_p, dim=0)
 
-            _batch_mask_v, _batch_feat_v, _batch_feat_vis = [], [], []
+            _batch_mask_v, _batch_feat_f, _batch_feat_p = [], [], []
             for i in range(len(ids_t)):
                 if ids_t[i] in cut_off_points_:
                     _batch_mask_v.append(batch_mask_v[i])
-                    _batch_feat_v.append(batch_feat_v[i])
-                    _batch_feat_vis.append(batch_feat_vis[i])
+                    _batch_feat_f.append(batch_feat_f[i])
+                    _batch_feat_p.append(batch_feat_p[i])
 
             batch_mask_v = torch.stack(_batch_mask_v, dim=0)
-            batch_feat_v = torch.stack(_batch_feat_v, dim=0)
-            batch_feat_vis = torch.stack(_batch_feat_vis, dim=0)
+            batch_feat_f = torch.stack(_batch_feat_f, dim=0)
+            batch_feat_p = torch.stack(_batch_feat_p, dim=0)
 
         else:
             for batch in tqdm(test_dataloader):
                 batch = tuple(t.to(device) for t in batch)
-                text_ids, text_mask, video, video_mask, inds, _ = batch
-                text_feat, video_feat, visual_feat = model.get_text_video_feat(text_ids, text_mask, video, video_mask)
+                text, text_mask, video, video_mask, inds, index = batch
+                s_feat, w_feat, f_feat, p_feat = model.get_text_video_feat(text, text_mask, video, video_mask)
                 ids_t.append(inds)
+                ids_v.append(inds)
                 batch_mask_t.append(text_mask)
                 batch_mask_v.append(video_mask)
-                batch_feat_t.append(text_feat)
-                batch_feat_v.append(video_feat)
-                batch_feat_vis.append(visual_feat)
+                batch_feat_s.append(s_feat)
+                batch_feat_w.append(w_feat)
+                batch_feat_f.append(f_feat)
+                batch_feat_p.append(p_feat)
             ids_t = allgather(torch.cat(ids_t, dim=0), args).squeeze()
             batch_mask_t = allgather(torch.cat(batch_mask_t, dim=0), args)
             batch_mask_v = allgather(torch.cat(batch_mask_v, dim=0), args)
-            batch_feat_t = allgather(torch.cat(batch_feat_t, dim=0), args)
-            batch_feat_v = allgather(torch.cat(batch_feat_v, dim=0), args)
-            batch_feat_vis = allgather(torch.cat(batch_feat_vis, dim=0), args)
+            batch_feat_s = allgather(torch.cat(batch_feat_s, dim=0), args)
+            batch_feat_w = allgather(torch.cat(batch_feat_w, dim=0), args)
+            batch_feat_f = allgather(torch.cat(batch_feat_f, dim=0), args)
+            batch_feat_p = allgather(torch.cat(batch_feat_p, dim=0), args)
             batch_mask_t[ids_t] = batch_mask_t.clone()
             batch_mask_v[ids_t] = batch_mask_v.clone()
-            batch_feat_t[ids_t] = batch_feat_t.clone()
-            batch_feat_v[ids_t] = batch_feat_v.clone()
-            batch_feat_vis[ids_t] = batch_feat_vis.clone()
+            batch_feat_s[ids_t] = batch_feat_s.clone()
+            batch_feat_w[ids_t] = batch_feat_w.clone()
+            batch_feat_f[ids_t] = batch_feat_f.clone()
+            batch_feat_p[ids_t] = batch_feat_p.clone()
             batch_mask_t = batch_mask_t[:ids_t.max() + 1, ...]
             batch_mask_v = batch_mask_v[:ids_t.max() + 1, ...]
-            batch_feat_t = batch_feat_t[:ids_t.max() + 1, ...]
-            batch_feat_v = batch_feat_v[:ids_t.max() + 1, ...]
-            batch_feat_vis = batch_feat_vis[:ids_t.max() + 1, ...]
+            batch_feat_s = batch_feat_s[:ids_t.max() + 1, ...]
+            batch_feat_w = batch_feat_w[:ids_t.max() + 1, ...]
+            batch_feat_f = batch_feat_f[:ids_t.max() + 1, ...]
+            batch_feat_p = batch_feat_p[:ids_t.max() + 1, ...]
 
     toc1 = time.time()
 
     with torch.no_grad():
-        sim_matrix = _run_on_single_gpu(model, batch_mask_t, batch_mask_v, batch_feat_t, batch_feat_v, batch_feat_vis, args.split_batch)
+        sim_matrix = _run_on_single_gpu(model, batch_mask_t, batch_feat_s, batch_feat_w, batch_mask_v, batch_feat_f, batch_feat_p, args.split_batch)
         sim_matrix = np.concatenate(tuple(sim_matrix), axis=0)
     toc2 = time.time()
     if multi_sentence_:
@@ -460,20 +486,21 @@ def main():
         best_score = 0.00001
         best_output_model_file = "None"
         global_step = 0
+        logger.info("V-Sparse begins to training...")
         for epoch in range(args.epochs):
             if train_sampler is not None:
                 train_sampler.set_epoch(epoch)
             synchronize()
             if epoch == 0:
                 torch.cuda.empty_cache()
-                logger.info("Zero-shot VSC-HA of text-to-video retrieval")
+                logger.info("Zero-shot V-Sparse of text-to-video retrieval")
                 R1 = eval_epoch(args, model, test_dataloader, args.device)
                 logger.info("Zero-shot text-to-video retrieval of R1 is: {:.4f}".format(R1))
 
             torch.cuda.empty_cache()
             tr_loss, global_step = train_epoch(epoch, args, model, train_dataloader,
                                                args.device, args.world_size, optimizer,
-                                               scheduler, global_step, max_steps, test_dataloader)
+                                               scheduler, global_step, max_steps)
             torch.cuda.empty_cache()
             R1 = eval_epoch(args, model, test_dataloader, args.device)
             torch.cuda.empty_cache()
@@ -495,8 +522,7 @@ def main():
         if args.local_rank == 0:
             model.load_state_dict(torch.load('best.pth', map_location='cpu'), strict=False)
         if torch.cuda.is_available():
-            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
-                                                              find_unused_parameters=True)
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], find_unused_parameters=True)
 
         torch.cuda.empty_cache()
         eval_epoch(args, model, test_dataloader, args.device)
