@@ -226,18 +226,18 @@ class V_Sparse(nn.Module):
             p_token_dict = self.v_att_block_p_3(self.v_pcm_p_3(p_token_dict), s_token_dict)
             p_feat = p_token_dict["x"]
             v_feat = torch.cat([f_feat, p_feat], dim=1)
-            s_feat = s_feat.squeeze(1)
+            t_feat = s_feat.squeeze(1)
 
-            CoarseScore = self.alignmentCoarse(s_feat, v_feat)
+            CoarseScore = self.alignmentCoarse(t_feat, v_feat)
             loss = loss + self.loss_fct(CoarseScore * logit_scale) + self.loss_fct(CoarseScore.T * logit_scale)
-            MediumScore = self.alignmentMedium(s_feat, v_feat)
+            MediumScore = self.alignmentMedium(t_feat, v_feat)
             loss = loss + (self.loss_fct(MediumScore * logit_scale) + self.loss_fct(MediumScore.T * logit_scale)) * self.config.alpha
-            FineScore = self.alignmentFine(s_feat, v_feat)
+            FineScore = self.alignmentFine(t_feat, v_feat)
             loss = loss + (self.loss_fct(FineScore * logit_scale) + self.loss_fct(FineScore.T * logit_scale)) * self.config.alpha
 
             loss_CM = self.kl(CoarseScore, MediumScore)
             loss_CF = self.kl(CoarseScore, FineScore)
-            loss_MF = self.kl(CoarseScore, FineScore)
+            loss_MF = self.kl(MediumScore, FineScore)
 
             loss = loss + (loss_CM + loss_CF + loss_MF) * self.config.gamma
 
@@ -354,11 +354,11 @@ class V_Sparse(nn.Module):
         p_token_dict = self.v_att_block_p_3(self.v_pcm_p_3(p_token_dict), s_token_dict)
         p_feat = p_token_dict["x"]
         v_feat = torch.cat([f_feat, p_feat], dim=1)
-        s_feat = s_feat.squeeze(1)
+        t_feat = s_feat.squeeze(1)
 
-        CoarseScore = self.alignmentCoarse(s_feat, v_feat)
-        MediumScore = self.alignmentMedium(s_feat, v_feat)
-        FineScore = self.alignmentFine(s_feat, v_feat)
+        CoarseScore = self.alignmentCoarse(t_feat, v_feat)
+        MediumScore = self.alignmentMedium(t_feat, v_feat)
+        FineScore = self.alignmentFine(t_feat, v_feat)
 
         return (CoarseScore + MediumScore + FineScore) / 3.0
 
