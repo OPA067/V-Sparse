@@ -1,6 +1,8 @@
 <div align="center">
 
-# V-Sparse: From temporal-spatial visual semantic compression to coarse-to-fine interaction for text-video retrieval
+**Neural Networks, V-Sparse**
+
+# From temporal-spatial visual semantic compression to coarse-to-fine interaction for text-video retrieval
 
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![PyTorch 2.0](https://img.shields.io/badge/pytorch-2.0-ee4c2c.svg)](https://pytorch.org/)
@@ -257,6 +259,20 @@ CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch \
     --output_dir experiments/MSRVTT
 ```
 
+**Evaluation Output:**
+The evaluation will output the following metrics:
+- **R@1, R@5, R@10**: Recall at different ranks
+- **MdR**: Median Rank
+- **MnR**: Mean Rank
+- **RSum**: Sum of R@1 + R@5 + R@10
+
+**Evaluation Process:**
+1. Load the trained model checkpoint
+2. Extract features for all test queries and videos
+3. Compute similarity scores
+4. Rank videos for each query (and vice versa)
+5. Calculate retrieval metrics
+
 ## 🗂️ Project Structure
 
 ```
@@ -268,6 +284,7 @@ V-Sparse/
 │   ├── module_clip.py             # CLIP vision/language encoder
 │   ├── module_cross.py            # Transformer blocks for cross-modal interaction
 │   ├── module_transformer.py      # Transformer utilities
+│   ├── until_module.py            # Utility modules (LayerNorm, AllGather, CrossEn, KL)
 │   ├── optimization.py            # BertAdam optimizer
 │   └── tokenization_clip.py       # CLIP text tokenizer
 ├── dataloaders/
@@ -291,7 +308,9 @@ V-Sparse/
 │   └── run_test.sh                # Evaluation script
 ├── preprocess/
 │   └── compress_video.py          # Video preprocessing utility
-├── figures/                       # Paper figures
+├── experiments/                   # Training logs and checkpoints
+│   └── MSRVTT/                    # MSRVTT experiment results
+├── figures/                       # Paper figures (PNG format)
 ├── docs/                          # Documentation and paper
 └── requirements.txt               # Python dependencies
 ```
@@ -534,6 +553,13 @@ This adaptive strategy ensures optimal performance across different token config
 
 This project is built upon [CLIP](https://github.com/openai/CLIP) and several excellent open-source projects. We thank the authors for releasing their code.
 
+**Key Dependencies:**
+- [CLIP](https://github.com/openai/CLIP): Contrastive Language-Image Pre-training
+- [PyTorch](https://pytorch.org/): Deep learning framework
+- [transformers](https://github.com/huggingface/transformers): Hugging Face transformers
+- [decord](https://github.com/dmlc/decord): Video loading library
+- [timm](https://github.com/rwightman/pytorch-image-models): PyTorch Image Models
+
 ## 📚 Citation
 
 If you find this work useful, please cite our paper:
@@ -552,11 +578,31 @@ If you find this work useful, please cite our paper:
 
 ## 📄 License
 
-This project is for research purposes only. Please refer to the license file for details.
+This project is for research purposes only. Please refer to the [LICENSE](LICENSE) file for details.
+
+**Usage Rights:**
+- ✅ Academic research and education
+- ✅ Non-commercial purposes
+- ✅ Modification and adaptation
+- ❌ Commercial use without permission
+- ❌ Redistribution without attribution
 
 ## 🤝 Contributing
 
 We welcome contributions! Please feel free to submit issues and pull requests.
+
+**How to Contribute:**
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+**Contribution Guidelines:**
+- Follow the existing code style
+- Add comments for complex logic
+- Update documentation if needed
+- Test your changes before submitting
 
 ## 🛠️ Troubleshooting
 
@@ -570,6 +616,9 @@ We welcome contributions! Please feel free to submit issues and pull requests.
 
 # Or reduce max_frames
 --max_frames 8
+
+# Or reduce split_batch for evaluation
+--split_batch 16
 ```
 
 **2. Video Loading Errors**
@@ -613,6 +662,19 @@ pip install thop
 
 # Check Python version
 python --version  # Should be 3.10+
+
+# Check PyTorch installation
+python -c "import torch; print(torch.__version__)"
+```
+
+**6. Model Loading Errors**
+```bash
+# Ensure CLIP weights are in correct location
+ls models/ViT-B-32.pt
+ls models/ViT-B-16.pt
+
+# Download from official CLIP repository if missing
+# https://github.com/openai/CLIP
 ```
 
 ### Performance Tips
@@ -635,3 +697,12 @@ torch.backends.cudnn.benchmark = False
 ## 📧 Contact
 
 For questions or feedback, please open an issue on GitHub.
+
+**Contact Information:**
+- **Issues**: [GitHub Issues](https://github.com/username/V-Sparse/issues)
+- **Email**: [Your Email]
+- **Paper**: [Neural Networks Paper Link]
+
+**Response Time:**
+- We typically respond to issues within 2-3 business days
+- For urgent matters, please use email
