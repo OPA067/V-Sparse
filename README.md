@@ -432,7 +432,7 @@ V-Sparse achieves competitive text-video retrieval performance on standard bench
 
 | Dataset | Train Videos | Test Videos | Captions | Task |
 |---------|--------------|-------------|----------|------|
-| MSRVTT | 9,000 | 1,000 | ~200K | Video-to-Text Retrieval |
+| MSRVTT | 9,000 | 1,000 | 200,000 | Video-to-Text Retrieval |
 | DiDeMo | 8,543 | 1,045 | 42,729 | Temporal Video Grounding |
 | Charades | 12,468 | 1,841 | 53,397 | Activity Recognition |
 
