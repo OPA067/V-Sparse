@@ -1,0 +1,11 @@
+numpy==1.24.1
+opencv-python==4.9.0
+transformers==4.39.2
+decord
+pandas
+ftfy
+regex
+tqdm
+functional
+timm
+boto3
