@@ -1,7 +1,5 @@
 <div align="center">
 
-**Neural Networks, V-Sparse**
-
 # From temporal-spatial visual semantic compression to coarse-to-fine interaction for text-video retrieval
 
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
