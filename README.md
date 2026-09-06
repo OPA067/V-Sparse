@@ -12,7 +12,7 @@
 
 ## 📋 Overview
 
-Text-to-video retrieval refers to the task of finding the most relevant videos in a large-scale unlabeled video collection based on a given text query. In recent years, CLIP-based text-video retrieval methods have developed rapidly, with research primarily focusing on feature-enhancement techniques and interaction strategies. However, due to the concise nature of text and the rich modalities of video, computing similarity scores alone is insufficient for high-precision cross-modal retrieval. To address the inherent imbalance in cross-modal matching, we propose a novel text-video retrieval model, named **V-Sparse**, which includes visual semantic compression for feature enhancement and coarse-to-fine alignment for feature interaction. First, we propose a text-guided Visual Semantic Compression (**VSC**) module, consisting of Temporal (**TVSC**) frame-level and Spatial (**SVSC**) patch-level  compression, aimed at reducing feature redundancy and providing precision support for coarse-to-fine interaction. Second, benefiting from visual semantic compression, we propose a novel Coarse-to-Fine granularity Interaction module (**CFI**), which aligns sentences with frames, sentences with patches, and words with patches from a unified joint feature encoding perspective. VSC and CFI jointly facilitate cross-modal text-video alignment from the perspectives of feature enhancement and feature interaction, greatly mitigating the inherent imbalance in modal pairing. We evaluate the performance of V-Sparse on six benchmark datasets and achieve state-of-the-art results in both long-video and short-text retrieval. Importantly, V-Sparse demonstrates the importance of feature compression in cross-modal interaction through extensive ablations and offers an effective intermediate pathway for modality interaction.
+To address the inherent imbalance in cross-modal matching, we propose a novel text-video retrieval model, named **V-Sparse**, which includes visual semantic compression for feature enhancement and coarse-to-fine alignment for feature interaction. First, we propose a text-guided Visual Semantic Compression (**VSC**) module, consisting of Temporal (**TVSC**) frame-level and Spatial (**SVSC**) patch-level  compression, aimed at reducing feature redundancy and providing precision support for coarse-to-fine interaction. Second, benefiting from visual semantic compression, we propose a novel Coarse-to-Fine granularity Interaction module (**CFI**), which aligns sentences with frames, sentences with patches, and words with patches from a unified joint feature encoding perspective. VSC and CFI jointly facilitate cross-modal text-video alignment from the perspectives of feature enhancement and feature interaction, greatly mitigating the inherent imbalance in modal pairing. We evaluate the performance of V-Sparse on six benchmark datasets and achieve state-of-the-art results in both long-video and short-text retrieval. Importantly, V-Sparse demonstrates the importance of feature compression in cross-modal interaction through extensive ablations and offers an effective intermediate pathway for modality interaction.
 
 ### Key Features
 
@@ -695,12 +695,3 @@ torch.backends.cudnn.benchmark = False
 ## 📧 Contact
 
 For questions or feedback, please open an issue on GitHub.
-
-**Contact Information:**
-- **Issues**: [GitHub Issues](https://github.com/username/V-Sparse/issues)
-- **Email**: [Your Email]
-- **Paper**: [Neural Networks Paper Link]
-
-**Response Time:**
-- We typically respond to issues within 2-3 business days
-- For urgent matters, please use email
