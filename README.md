@@ -31,7 +31,7 @@ To address the inherent imbalance in cross-modal matching, we propose a novel te
 ## ⚡ Framework
 
 <div align="center">
-  <img src="figures/framework.png" alt="V-Sparse Framework" width="800" style="border: none;"/>
+  <img src="figures/framework.png" alt="V-Sparse Framework" width="800" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
 </div>
 
 ### Architecture Overview
@@ -105,17 +105,17 @@ This progressive compression reduces computational complexity while preserving s
 ## 😍 Visualization
 
 <div align="center">
-  <img src="figures/motivation.png" alt="Motivation" width="600" style="border: none;"/>
+  <img src="figures/motivation.png" alt="Motivation" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
   <p><em>Motivation: why sparse spatial clustering is essential for efficient text-video retrieval.</em></p>
 </div>
 
 <div align="center">
-  <img src="figures/svsc.png" alt="SVSC" width="600" style="border: none;"/>
+  <img src="figures/svsc.png" alt="SVSC" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
   <p><em>Sparse Video Spatial Clustering (SVSC) module details.</em></p>
 </div>
 
 <div align="center">
-  <img src="figures/video_similarity.png" alt="Video Similarity" width="600" style="border: none;"/>
+  <img src="figures/video_similarity.png" alt="Video Similarity" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
   <p><em>Video similarity analysis across different spatial granularities.</em></p>
 </div>
 
