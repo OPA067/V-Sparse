@@ -38,6 +38,73 @@ We propose a novel text-video retrieval model, named **V-Sparse**, which address
 - **[2025/01/20]**: The paper has been submitted to the journal Neural Networks.
 - **[2026/04/10]**: Paper accepted by the journal Neural Networks.
 
+## 🗂️ Project Structure
+
+```
+V-Sparse/
+├── main_retrieval.py              # Main entry point for training & evaluation
+├── requirements.txt               # Python dependencies
+├── models/
+│   ├── __init__.py
+│   ├── modeling.py                # Core V-Sparse model (CLIP encoder + dual-branch + multi-level interaction)
+│   ├── cluster.py                 # PCM module variant
+│   ├── cluster_.py                # Progressive Clustering Module (PCM) & cross-attention
+│   ├── module_clip.py             # CLIP vision/language encoder
+│   ├── module_cross.py            # Transformer blocks for cross-modal interaction
+│   ├── module_transformer.py      # Transformer utilities
+│   ├── optimization.py            # BertAdam optimizer with warmup cosine annealing
+│   ├── tokenization_clip.py       # CLIP text tokenizer
+│   ├── until_config.py            # Model configuration utilities
+│   ├── until_module.py            # Utility modules (LayerNorm, AllGather, CrossEn, KL)
+│   ├── file_utils.py              # File I/O helpers
+│   ├── cross-base/
+│   │   └── cross_config.json      # Cross-modal Transformer config
+│   └── bpe_simple_vocab_16e6.txt.gz  # BPE vocabulary for tokenization
+├── dataloaders/
+│   ├── __init__.py
+│   ├── data_dataloaders.py        # DataLoader registry & collate functions
+│   ├── dataloader_msrvtt_retrieval.py   # MSRVTT dataset loader
+│   ├── dataloader_didemo_retrieval.py   # DiDeMo dataset loader
+│   ├── dataloader_charades_retrieval.py # Charades dataset loader
+│   ├── dataloader_retrieval.py    # Base retrieval dataset class
+│   ├── rawvideo_util.py           # Raw video reading utilities
+│   ├── video_transforms.py        # Video augmentation transforms
+│   ├── random_erasing.py          # Random erasing augmentation
+│   ├── rand_augment.py            # RandAugment policy
+│   └── functional.py              # Functional transform helpers
+├── utils/
+│   ├── __init__.py
+│   ├── metrics.py                 # Retrieval evaluation metrics (R@K, MdR, MnR)
+│   ├── metrics_qa.py              # QA-specific evaluation metrics
+│   ├── logger.py                  # Logging utilities
+│   ├── metric_logger.py           # Metric logging & smoothing
+│   ├── util.py                    # General utility functions
+│   └── comm.py                    # Distributed communication helpers
+├── script/
+│   ├── run_MSRVTT.sh              # Training & eval script for MSRVTT
+│   ├── run_DiDeMo.sh              # Training & eval script for DiDeMo
+│   ├── run_Charades.sh            # Training & eval script for Charades
+│   └── run_test.sh                # Quick test script
+├── preprocess/
+│   └── compress_video.py          # Video preprocessing & compression
+├── docs/                          # Paper & supplementary materials
+│   ├── V-Sparse.pdf
+│   ├── V-Sparse-Author-Responses.docx
+│   ├── framework.pdf
+│   ├── motivation.pdf
+│   ├── svsc.pdf
+│   └── video_similarity.pdf
+├── experiments/                   # Output directory for logs & checkpoints
+│   └── MSRVTT/                    # Per-dataset experiment outputs
+│       └── <timestamp>/           # Timestamped run directories
+│           └── log.txt            # Training & evaluation log
+└── figures/                       # Motivation & framework diagrams
+    ├── framework.png
+    ├── motivation.png
+    ├── svsc.png
+    └── video_similarity.png
+```
+
 ## ⚡ Framework
 
 <div align="center">
@@ -280,73 +347,6 @@ The evaluation will output the following metrics:
 3. Compute similarity scores
 4. Rank videos for each query (and vice versa)
 5. Calculate retrieval metrics
-
-## 🗂️ Project Structure
-
-```
-V-Sparse/
-├── main_retrieval.py              # Main entry point for training & evaluation
-├── requirements.txt               # Python dependencies
-├── models/
-│   ├── __init__.py
-│   ├── modeling.py                # Core V-Sparse model (CLIP encoder + dual-branch + multi-level interaction)
-│   ├── cluster.py                 # PCM module variant
-│   ├── cluster_.py                # Progressive Clustering Module (PCM) & cross-attention
-│   ├── module_clip.py             # CLIP vision/language encoder
-│   ├── module_cross.py            # Transformer blocks for cross-modal interaction
-│   ├── module_transformer.py      # Transformer utilities
-│   ├── optimization.py            # BertAdam optimizer with warmup cosine annealing
-│   ├── tokenization_clip.py       # CLIP text tokenizer
-│   ├── until_config.py            # Model configuration utilities
-│   ├── until_module.py            # Utility modules (LayerNorm, AllGather, CrossEn, KL)
-│   ├── file_utils.py              # File I/O helpers
-│   ├── cross-base/
-│   │   └── cross_config.json      # Cross-modal Transformer config
-│   └── bpe_simple_vocab_16e6.txt.gz  # BPE vocabulary for tokenization
-├── dataloaders/
-│   ├── __init__.py
-│   ├── data_dataloaders.py        # DataLoader registry & collate functions
-│   ├── dataloader_msrvtt_retrieval.py   # MSRVTT dataset loader
-│   ├── dataloader_didemo_retrieval.py   # DiDeMo dataset loader
-│   ├── dataloader_charades_retrieval.py # Charades dataset loader
-│   ├── dataloader_retrieval.py    # Base retrieval dataset class
-│   ├── rawvideo_util.py           # Raw video reading utilities
-│   ├── video_transforms.py        # Video augmentation transforms
-│   ├── random_erasing.py          # Random erasing augmentation
-│   ├── rand_augment.py            # RandAugment policy
-│   └── functional.py              # Functional transform helpers
-├── utils/
-│   ├── __init__.py
-│   ├── metrics.py                 # Retrieval evaluation metrics (R@K, MdR, MnR)
-│   ├── metrics_qa.py              # QA-specific evaluation metrics
-│   ├── logger.py                  # Logging utilities
-│   ├── metric_logger.py           # Metric logging & smoothing
-│   ├── util.py                    # General utility functions
-│   └── comm.py                    # Distributed communication helpers
-├── script/
-│   ├── run_MSRVTT.sh              # Training & eval script for MSRVTT
-│   ├── run_DiDeMo.sh              # Training & eval script for DiDeMo
-│   ├── run_Charades.sh            # Training & eval script for Charades
-│   └── run_test.sh                # Quick test script
-├── preprocess/
-│   └── compress_video.py          # Video preprocessing & compression
-├── docs/                          # Paper & supplementary materials
-│   ├── V-Sparse.pdf
-│   ├── V-Sparse-Author-Responses.docx
-│   ├── framework.pdf
-│   ├── motivation.pdf
-│   ├── svsc.pdf
-│   └── video_similarity.pdf
-├── experiments/                   # Output directory for logs & checkpoints
-│   └── MSRVTT/                    # Per-dataset experiment outputs
-│       └── <timestamp>/           # Timestamped run directories
-│           └── log.txt            # Training & evaluation log
-└── figures/                       # Motivation & framework diagrams
-    ├── framework.png
-    ├── motivation.png
-    ├── svsc.png
-    └── video_similarity.png
-```
 
 ### Key Arguments
 
