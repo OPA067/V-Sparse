@@ -441,27 +441,82 @@ loss_kl = (KL(sims_l, sims_h) + KL(sims_l.T, sims_h.T) +
 
 This ensures both branches produce consistent similarity distributions.
 
-## 📊 Results
+## 🧪 Experiments
 
-V-Sparse achieves competitive text-video retrieval performance on standard benchmarks.
+### Configuration Parameters
 
-### MSRVTT (Single GPU, 5 epochs)
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `alpha` | `0.5` | Loss weight coefficient |
+| `beta` | `0.1` | Loss weight coefficient |
+| `gamma` | `0.01` | Loss weight coefficient |
+| `interaction` | `wti` | Interaction type |
+| `device` | `cuda:0` | Training device |
+| `max_words` | `32` | Maximum text tokens |
+| `n_display` | `100` | Display interval |
+| `split_batch` | `32` | Split batch size |
+| `workers` | `8` | DataLoader workers |
+| `weight_decay` | `0.2` | Weight decay |
+| `seed` | `42` | Random seed |
+| `topk` | `32` | Top-K for evaluation |
 
-| Metric | Zero-shot | Epoch 1 | Epoch 2 | Epoch 3 | Epoch 4 | Epoch 5 (Best) |
-|--------|-----------|---------|---------|---------|---------|----------------|
-| T→V R@1 | 34.4 | 46.3 | 48.6 | 49.2 | 50.4 | **50.9** |
-| T→V R@5 | 59.1 | 75.1 | 75.7 | 76.8 | 76.2 | **75.9** |
-| T→V R@10 | 69.5 | 83.9 | 85.1 | 86.2 | 85.1 | **85.5** |
-| V→T R@1 | 35.6 | 48.2 | 47.8 | 51.2 | 49.9 | **50.7** |
-| V→T R@5 | 60.3 | 74.9 | 75.3 | 77.1 | 76.4 | **76.6** |
-| V→T R@10 | 68.9 | 85.0 | 83.5 | 85.1 | 84.9 | **84.5** |
+### Model Statistics
 
-**Training Details:**
-- Model: 171.55M parameters (169.19M trainable)
-- Training time: ~6.5 hours (single GPU)
-- GPU memory: ~10.57 GB
-- Optimizer: BertAdam with warmup cosine annealing
-- Batch size: 32
+| Metric | Value |
+|--------|-------|
+| Total Parameters | 171.55M |
+| Trainable Parameters | 169.19M |
+| GPU Memory Usage | ~10.57 GB |
+| Training Time (MSRVTT) | 06h 27min 07s (single GPU) |
+| Inference Speed | ~30s per 1000 samples |
+
+### Running Information
+
+| Parameter | Value |
+|-----------|-------|
+| Num examples (Test) | 1,000 |
+| Num examples (Train) | 180,000 |
+| Batch size | 32 |
+| Steps per epoch | 5,625 |
+| Total training steps | 28,125 |
+
+### Zero-shot Evaluation
+
+**Text → Video Retrieval:**
+
+| R@1 | R@5 | R@10 | R@Sum | MdR | MnR |
+|-----|-----|------|-------|-----|-----|
+| 34.4 | 59.1 | 69.5 | 163.0 | 3.0 | 27.1 |
+
+**Video → Text Retrieval:**
+
+| R@1 | R@5 | R@10 | R@Sum | MdR | MnR |
+|-----|-----|------|-------|-----|-----|
+| 35.6 | 60.3 | 68.9 | 164.7 | 3.0 | 25.5 |
+
+### Training Progress
+
+| Epoch | T→V R@1 | T→V R@5 | T→V R@10 | T→V R@Sum | V→T R@1 | V→T R@5 | V→T R@10 | V→T R@Sum |
+|-------|---------|---------|----------|-----------|---------|---------|----------|-----------|
+| 1 | 46.3 | 75.1 | 83.9 | 205.3 | 48.2 | 74.9 | 85.0 | 208.1 |
+| 2 | 48.6 | 75.7 | 85.1 | 209.4 | 47.8 | 75.3 | 83.5 | 206.6 |
+| 3 | 49.2 | 76.8 | 86.2 | 212.2 | 51.2 | 77.1 | 85.1 | 213.3 |
+| 4 | 50.4 | 76.2 | 85.1 | 211.7 | 49.9 | 76.4 | 84.9 | 211.2 |
+| 5 (Best) | **50.9** | **75.9** | **85.5** | **212.3** | **50.7** | **76.6** | **84.5** | **211.8** |
+
+### Final Evaluation
+
+**Text → Video Retrieval:**
+
+| R@1 | R@5 | R@10 | R@Sum | MdR | MnR |
+|-----|-----|------|-------|-----|-----|
+| 50.9 | 75.9 | 85.5 | 212.3 | 1.0 | 11.3 |
+
+**Video → Text Retrieval:**
+
+| R@1 | R@5 | R@10 | R@Sum | MdR | MnR |
+|-----|-----|------|-------|-----|-----|
+| 50.7 | 76.6 | 84.5 | 211.8 | 1.0 | 9.4 |
 
 ### Dataset Statistics
 
@@ -480,8 +535,6 @@ V-Sparse achieves competitive text-video retrieval performance on standard bench
 
 For detailed results on DiDeMo and Charades, please refer to our paper.
 
-## 🔬 Technical Details
-
 ### Model Configuration
 
 | Parameter | Default | Description |
@@ -489,7 +542,7 @@ For detailed results on DiDeMo and Charades, please refer to our paper.
 | `base_encoder` | `ViT-B/32` | CLIP backbone variant |
 | `agg_module` | `seqTransf` | Temporal aggregation module (`None` / `seqLSTM` / `seqTransf`) |
 | `num_hidden_layers` | `4` | Transformer layers in video branch |
-| `max_words` | `24` | Maximum text tokens per query |
+| `max_words` | `32` | Maximum text tokens per query |
 | `max_frames` | `12` | Maximum sampled video frames |
 | `save_frames` | `6` | Frames retained after compact (`max_frames // 2`) |
 | `sample_ratio` | `0.5` | PCM token compression ratio (per layer) |
@@ -538,20 +591,6 @@ total_loss = loss_h + loss_l + loss_kl
 | `vp_feat_` | `[b, p', d]` | ActionFlow output (3-layer concatenated patches) |
 
 Where: `a` = batch size, `w` = max words, `f` = max frames, `p` = frames × patches per frame (e.g., 12×49=588), `d` = embed dim (512)
-
-## ⚙️ Computational Efficiency
-
-V-Sparse achieves significant computational savings through progressive spatial clustering:
-
-### Model Efficiency
-
-| Metric | Value |
-|--------|-------|
-| Total Parameters | 171.55M |
-| Trainable Parameters | 169.19M |
-| GPU Memory Usage | ~10.57 GB |
-| Training Time (MSRVTT) | ~6.5 hours (single GPU) |
-| Inference Speed | ~30s per 1000 samples |
 
 ### Progressive Compression Benefits
 
@@ -728,7 +767,3 @@ For reproducible results:
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 ```
-
-## 📧 Contact
-
-For questions or feedback, please open an issue on GitHub.
