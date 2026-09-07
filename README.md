@@ -653,7 +653,7 @@ If you find this work useful, please cite our paper:
 If you have any questions, feel free to reach out:
 
 - **Issues**: For bug reports, feature requests, or general questions, please open a [GitHub Issue](https://github.com/OPA067/V-Sparse/issues).
-- **Email**: `1719472278@qq.com`
+- **Email**: `xinl067@163.com`
 
 We welcome contributions and suggestions!
 
