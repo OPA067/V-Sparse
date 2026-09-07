@@ -12,7 +12,17 @@
 
 ## 📋 Overview
 
-To address the inherent imbalance in cross-modal matching, we propose a novel text-video retrieval model, named **V-Sparse**, which includes visual semantic compression for feature enhancement and coarse-to-fine alignment for feature interaction. First, we propose a text-guided Visual Semantic Compression (**VSC**) module, consisting of Temporal (**TVSC**) frame-level and Spatial (**SVSC**) patch-level  compression, aimed at reducing feature redundancy and providing precision support for coarse-to-fine interaction. Second, benefiting from visual semantic compression, we propose a novel Coarse-to-Fine granularity Interaction module (**CFI**), which aligns sentences with frames, sentences with patches, and words with patches from a unified joint feature encoding perspective. VSC and CFI jointly facilitate cross-modal text-video alignment from the perspectives of feature enhancement and feature interaction, greatly mitigating the inherent imbalance in modal pairing. We evaluate the performance of V-Sparse on six benchmark datasets and achieve state-of-the-art results in both long-video and short-text retrieval. Importantly, V-Sparse demonstrates the importance of feature compression in cross-modal interaction through extensive ablations and offers an effective intermediate pathway for modality interaction.
+We propose a novel text-video retrieval model, named **V-Sparse**, which addresses the inherent imbalance in cross-modal matching through two core components:
+
+- **Visual Semantic Compression (VSC)**: A text-guided module that reduces feature redundancy via Temporal (**TVSC**) frame-level and Spatial (**SVSC**) patch-level compression, providing precision support for subsequent cross-modal interaction.
+
+- **Coarse-to-Fine Interaction (CFI)**: A multi-granularity alignment module that jointly aligns sentences with frames, sentences with patches, and words with patches from a unified feature encoding perspective.
+
+- **Synergistic Design**: VSC enhances feature representation while CFI enables effective feature interaction, jointly facilitating cross-modal text-video alignment and greatly mitigating the inherent imbalance in modal pairing.
+
+- **State-of-the-art Performance**: Achieves superior results on six benchmark datasets in both long-video and short-text retrieval tasks.
+
+- **Insightful Ablations**: Extensive experiments demonstrate the importance of feature compression in cross-modal interaction, offering an effective intermediate pathway for modality interaction.
 
 ### Key Features
 
@@ -110,13 +120,13 @@ This progressive compression reduces computational complexity while preserving s
 </div>
 
 <div align="center">
-  <img src="figures/svsc.png" alt="SVSC" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Sparse Video Spatial Clustering (SVSC) module details.</em></p>
+  <img src="figures/video_similarity.png" alt="Video Similarity" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
+  <p><em>Video similarity analysis across different spatial granularities.</em></p>
 </div>
 
 <div align="center">
-  <img src="figures/video_similarity.png" alt="Video Similarity" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Video similarity analysis across different spatial granularities.</em></p>
+  <img src="figures/svsc.png" alt="SVSC" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
+  <p><em>Sparse Video Spatial Clustering (SVSC) module details.</em></p>
 </div>
 
 ## 🚀 Quick Start
@@ -276,41 +286,66 @@ The evaluation will output the following metrics:
 ```
 V-Sparse/
 ├── main_retrieval.py              # Main entry point for training & evaluation
+├── requirements.txt               # Python dependencies
 ├── models/
-│   ├── modeling.py                # Core Model: CLIP encoder + PCM + spatial interaction
+│   ├── __init__.py
+│   ├── modeling.py                # Core V-Sparse model (CLIP encoder + dual-branch + multi-level interaction)
+│   ├── cluster.py                 # PCM module variant
 │   ├── cluster_.py                # Progressive Clustering Module (PCM) & cross-attention
 │   ├── module_clip.py             # CLIP vision/language encoder
 │   ├── module_cross.py            # Transformer blocks for cross-modal interaction
 │   ├── module_transformer.py      # Transformer utilities
+│   ├── optimization.py            # BertAdam optimizer with warmup cosine annealing
+│   ├── tokenization_clip.py       # CLIP text tokenizer
+│   ├── until_config.py            # Model configuration utilities
 │   ├── until_module.py            # Utility modules (LayerNorm, AllGather, CrossEn, KL)
-│   ├── optimization.py            # BertAdam optimizer
-│   └── tokenization_clip.py       # CLIP text tokenizer
+│   ├── file_utils.py              # File I/O helpers
+│   ├── cross-base/
+│   │   └── cross_config.json      # Cross-modal Transformer config
+│   └── bpe_simple_vocab_16e6.txt.gz  # BPE vocabulary for tokenization
 ├── dataloaders/
-│   ├── data_dataloaders.py        # DataLoader registry
-│   ├── dataloader_msrvtt_retrieval.py   # MSRVTT data loader
-│   ├── dataloader_didemo_retrieval.py   # DiDeMo data loader
-│   ├── dataloader_charades_retrieval.py # Charades data loader
+│   ├── __init__.py
+│   ├── data_dataloaders.py        # DataLoader registry & collate functions
+│   ├── dataloader_msrvtt_retrieval.py   # MSRVTT dataset loader
+│   ├── dataloader_didemo_retrieval.py   # DiDeMo dataset loader
+│   ├── dataloader_charades_retrieval.py # Charades dataset loader
 │   ├── dataloader_retrieval.py    # Base retrieval dataset class
+│   ├── rawvideo_util.py           # Raw video reading utilities
 │   ├── video_transforms.py        # Video augmentation transforms
-│   ├── rand_augment.py            # RandAugment implementation
-│   └── random_erasing.py          # Random erasing augmentation
+│   ├── random_erasing.py          # Random erasing augmentation
+│   ├── rand_augment.py            # RandAugment policy
+│   └── functional.py              # Functional transform helpers
 ├── utils/
-│   ├── metrics.py                 # Retrieval metrics (R@1/5/10, MdR, MnR)
-│   ├── metric_logger.py           # Training metric logger
+│   ├── __init__.py
+│   ├── metrics.py                 # Retrieval evaluation metrics (R@K, MdR, MnR)
+│   ├── metrics_qa.py              # QA-specific evaluation metrics
 │   ├── logger.py                  # Logging utilities
-│   └── comm.py                    # Distributed communication utilities
+│   ├── metric_logger.py           # Metric logging & smoothing
+│   ├── util.py                    # General utility functions
+│   └── comm.py                    # Distributed communication helpers
 ├── script/
-│   ├── run_MSRVTT.sh              # Training script for MSRVTT
-│   ├── run_DiDeMo.sh              # Training script for DiDeMo
-│   ├── run_Charades.sh            # Training script for Charades
-│   └── run_test.sh                # Evaluation script
+│   ├── run_MSRVTT.sh              # Training & eval script for MSRVTT
+│   ├── run_DiDeMo.sh              # Training & eval script for DiDeMo
+│   ├── run_Charades.sh            # Training & eval script for Charades
+│   └── run_test.sh                # Quick test script
 ├── preprocess/
-│   └── compress_video.py          # Video preprocessing utility
-├── experiments/                   # Training logs and checkpoints
-│   └── MSRVTT/                    # MSRVTT experiment results
-├── figures/                       # Paper figures (PNG format)
-├── docs/                          # Documentation and paper
-└── requirements.txt               # Python dependencies
+│   └── compress_video.py          # Video preprocessing & compression
+├── docs/                          # Paper & supplementary materials
+│   ├── V-Sparse.pdf
+│   ├── V-Sparse-Author-Responses.docx
+│   ├── framework.pdf
+│   ├── motivation.pdf
+│   ├── svsc.pdf
+│   └── video_similarity.pdf
+├── experiments/                   # Output directory for logs & checkpoints
+│   └── MSRVTT/                    # Per-dataset experiment outputs
+│       └── <timestamp>/           # Timestamped run directories
+│           └── log.txt            # Training & evaluation log
+└── figures/                       # Motivation & framework diagrams
+    ├── framework.png
+    ├── motivation.png
+    ├── svsc.png
+    └── video_similarity.png
 ```
 
 ### Key Arguments
@@ -574,16 +609,18 @@ If you find this work useful, please cite our paper:
 }
 ```
 
+## 📬 Contact
+
+If you have any questions, feel free to reach out:
+
+- **Issues**: For bug reports, feature requests, or general questions, please open a [GitHub Issue](https://github.com/OPA067/V-Sparse/issues).
+- **Email**: `1719472278@qq.com`
+
+We welcome contributions and suggestions!
+
 ## 📄 License
 
-This project is for research purposes only. Please refer to the [LICENSE](LICENSE) file for details.
-
-**Usage Rights:**
-- ✅ Academic research and education
-- ✅ Non-commercial purposes
-- ✅ Modification and adaptation
-- ❌ Commercial use without permission
-- ❌ Redistribution without attribution
+This project is released for academic research use only.
 
 ## 🤝 Contributing
 
