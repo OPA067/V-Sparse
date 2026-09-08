@@ -174,25 +174,29 @@ This progressive compression reduces computational complexity while preserving s
 
 ## 😍 Visualization
 
-<div align="left">
-  <img src="figures/framework.png" alt="V-Sparse Framework Overview" width="800" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Figure 1: Overall architecture of V-Sparse. (a) CLIP-based multi-granularity feature extraction produces sentence/word-level text features and frame/patch-level video features. (b) Video Semantic Compression (VSC) module: (b1) Temporal Compression selects top-N query-relevant frames via similarity scoring and merges bottom-M frames into scene-level summaries; (b2) Spatial Compression progressively merges patch tokens within each frame using DPC-KNN density peak clustering with text-guided attention, reducing spatial redundancy while preserving semantic content.</em></p>
+<div align="center">
+  <img src="figures/framework.png" alt="V-Sparse Framework Overview" width="100%"/>
 </div>
 
-<div align="left">
-  <img src="figures/motivation.png" alt="Motivation Comparison" width="700" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Figure 2: Motivation — comparison of retrieval results for the query "a little girl does gymnastics" (Query 9771). (a) X-Pool operates at the frame level and retrieves an incorrect video (a girl running outdoors). (b) Clip4Clip operates at the patch level but still retrieves a mismatched video (women practicing at a ballet barre). (c) V-Sparse jointly performs temporal selection and spatial clustering, successfully retrieving the correct video (a girl performing gymnastics on a mat) by identifying semantically relevant frames and patches.</em></p>
+> **Figure 1: Overall Architecture.** (a) CLIP-based multi-granularity feature extraction produces sentence/word-level text features and frame/patch-level video features. (b) Video Semantic Compression (VSC): (b1) Temporal Compression selects top-N query-relevant frames via similarity scoring and merges bottom-M frames into scene-level summaries; (b2) Spatial Compression progressively merges patch tokens using DPC-KNN density peak clustering with text-guided attention.
+
+<div align="center">
+  <img src="figures/motivation.png" alt="Motivation Comparison" width="100%"/>
 </div>
 
-<div align="left">
-  <img src="figures/video_similarity.png" alt="Video Similarity Analysis" width="700" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Figure 3: Inter-video similarity analysis during training. The red curve (S<sup>Related</sup><sub>Vo,Vc</sub>) shows cosine similarity between a video and its semantically related counterpart (e.g., "Baseball player hits ball"), which remains high (~0.95) throughout training. The blue curves (S<sup>Unrelated</sup><sub>Vo,Vc</sub>) show similarity between a video and unrelated captions (e.g., "A boy plays the piano", "A man is singing"), which progressively decreases from ~1.00 to ~0.88–0.93, indicating the model learns to distinguish related from unrelated content over epochs.</em></p>
+> **Figure 2: Motivation.** Comparison of retrieval results for the query *"a little girl does gymnastics"* (Query 9771). (a) X-Pool retrieves an incorrect video at frame level. (b) Clip4Clip retrieves a mismatched video at patch level. (c) V-Sparse jointly performs temporal selection and spatial clustering, successfully retrieving the correct video.
+
+<div align="center">
+  <img src="figures/video_similarity.png" alt="Video Similarity Analysis" width="100%"/>
 </div>
 
-<div align="left">
-  <img src="figures/svsc.png" alt="SVSC Compression Visualization" width="800" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Figure 4: Visualization of Spatial Video Semantic Compression (SVSC) at different compression ratios (ρ<sub>N<sub>p</sub></sub>). The first column shows the original input image; the second column shows the vanilla uniform patch tokens; columns 3–7 show the clustering results at compression ratios of 90%, 80%, 70%, 50%, and 30%, respectively. White outlines indicate cluster boundaries. As the compression ratio decreases, semantically meaningful regions (e.g., the duck, the car, the cat) are preserved as coherent clusters, while background and redundant patches are merged, demonstrating the module's ability to retain task-relevant spatial information under aggressive compression.</em></p>
+> **Figure 3: Inter-Video Similarity.** The red curve (S<sup>Related</sup><sub>Vo,Vc</sub>) shows cosine similarity between semantically related video-text pairs (~0.95). The blue curves (S<sup>Unrelated</sup><sub>Vo,Vc</sub>) decrease from ~1.00 to ~0.88–0.93, indicating the model learns to distinguish related from unrelated content over epochs.
+
+<div align="center">
+  <img src="figures/svsc.png" alt="SVSC Compression Visualization" width="100%"/>
 </div>
+
+> **Figure 4: SVSC Compression.** Column 1: original input. Column 2: vanilla patch tokens. Columns 3–7: clustering results at compression ratios ρ = 90%, 80%, 70%, 50%, 30%. White outlines indicate cluster boundaries. Semantically meaningful regions are preserved as coherent clusters under aggressive compression.
 
 ## 🚀 Quick Start
 
