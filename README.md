@@ -107,9 +107,7 @@ V-Sparse/
 
 ## ⚡ Framework
 
-<div align="center">
-  <img src="figures/framework.png" alt="V-Sparse Framework" width="800" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-</div>
+> See **Figure 1** in the [Visualization](#-visualization) section for the full architecture diagram.
 
 ### Architecture Overview
 
@@ -132,11 +130,6 @@ V-Sparse follows a four-stage pipeline for text-video retrieval:
 4. **Loss Computation**:
    - **Symmetric Contrastive Loss**: Bidirectional cross-entropy over multi-level similarities
    - **KL Alignment Loss**: Aligns similarity distributions between low-resolution and high-resolution branches
-
-### Training Objectives
-
-- **Symmetric Contrastive Loss**: Bidirectional cross-entropy over multi-level similarities
-- **KL Alignment Loss**: Aligns similarity distributions between low-resolution and high-resolution branches
 
 ### Dual-Branch Architecture
 
@@ -182,18 +175,23 @@ This progressive compression reduces computational complexity while preserving s
 ## 😍 Visualization
 
 <div align="center">
-  <img src="figures/motivation.png" alt="Motivation" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Motivation: why sparse spatial clustering is essential for efficient text-video retrieval.</em></p>
+  <img src="figures/framework.png" alt="V-Sparse Framework Overview" width="800" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
+  <p><em>Figure 1: Overall architecture of V-Sparse. (a) CLIP-based multi-granularity feature extraction produces sentence/word-level text features and frame/patch-level video features. (b) Video Semantic Compression (VSC) module: (b1) Temporal Compression selects top-N query-relevant frames via similarity scoring and merges bottom-M frames into scene-level summaries; (b2) Spatial Compression progressively merges patch tokens within each frame using DPC-KNN density peak clustering with text-guided attention, reducing spatial redundancy while preserving semantic content.</em></p>
 </div>
 
 <div align="center">
-  <img src="figures/video_similarity.png" alt="Video Similarity" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Video similarity analysis across different spatial granularities.</em></p>
+  <img src="figures/motivation.png" alt="Motivation Comparison" width="700" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
+  <p><em>Figure 2: Motivation — comparison of retrieval results for the query "a little girl does gymnastics" (Query 9771). (a) X-Pool operates at the frame level and retrieves an incorrect video (a girl running outdoors). (b) Clip4Clip operates at the patch level but still retrieves a mismatched video (women practicing at a ballet barre). (c) V-Sparse jointly performs temporal selection and spatial clustering, successfully retrieving the correct video (a girl performing gymnastics on a mat) by identifying semantically relevant frames and patches.</em></p>
 </div>
 
 <div align="center">
-  <img src="figures/svsc.png" alt="SVSC" width="600" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
-  <p><em>Sparse Video Spatial Clustering (SVSC) module details.</em></p>
+  <img src="figures/video_similarity.png" alt="Video Similarity Analysis" width="700" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
+  <p><em>Figure 3: Inter-video similarity analysis during training. The red curve (S<sup>Related</sup><sub>Vo,Vc</sub>) shows cosine similarity between a video and its semantically related counterpart (e.g., "Baseball player hits ball"), which remains high (~0.95) throughout training. The blue curves (S<sup>Unrelated</sup><sub>Vo,Vc</sub>) show similarity between a video and unrelated captions (e.g., "A boy plays the piano", "A man is singing"), which progressively decreases from ~1.00 to ~0.88–0.93, indicating the model learns to distinguish related from unrelated content over epochs.</em></p>
+</div>
+
+<div align="center">
+  <img src="figures/svsc.png" alt="SVSC Compression Visualization" width="800" style="border: 0; outline: none; box-shadow: none; padding: 0; margin: 0;"/>
+  <p><em>Figure 4: Visualization of Spatial Video Semantic Compression (SVSC) at different compression ratios (ρ<sub>N<sub>p</sub></sub>). The first column shows the original input image; the second column shows the vanilla uniform patch tokens; columns 3–7 show the clustering results at compression ratios of 90%, 80%, 70%, 50%, and 30%, respectively. White outlines indicate cluster boundaries. As the compression ratio decreases, semantically meaningful regions (e.g., the duck, the car, the cat) are preserved as coherent clusters, while background and redundant patches are merged, demonstrating the module's ability to retain task-relevant spatial information under aggressive compression.</em></p>
 </div>
 
 ## 🚀 Quick Start
@@ -356,7 +354,7 @@ The evaluation will output the following metrics:
 | `--base_encoder` | `ViT-B/32` | CLIP backbone: `ViT-B/32` / `ViT-B/16` |
 | `--agg_module` | `seqTransf` | Temporal aggregation: `None` / `seqLSTM` / `seqTransf` |
 | `--num_hidden_layers` | `4` | Number of Transformer layers in the video branch |
-| `--max_words` | `24` | Maximum text tokens per query |
+| `--max_words` | `32` | Maximum text tokens per query |
 | `--max_frames` | `12` | Maximum sampled video frames |
 | `--save_frames` | `6` | Frames retained after compact (`max_frames // 2`) |
 | `--epochs` | `5` | Total training epochs |
@@ -443,23 +441,6 @@ This ensures both branches produce consistent similarity distributions.
 
 ## 🧪 Experiments
 
-### Configuration Parameters
-
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `alpha` | `0.5` | Loss weight coefficient |
-| `beta` | `0.1` | Loss weight coefficient |
-| `gamma` | `0.01` | Loss weight coefficient |
-| `interaction` | `wti` | Interaction type |
-| `device` | `cuda:0` | Training device |
-| `max_words` | `32` | Maximum text tokens |
-| `n_display` | `100` | Display interval |
-| `split_batch` | `32` | Split batch size |
-| `workers` | `8` | DataLoader workers |
-| `weight_decay` | `0.2` | Weight decay |
-| `seed` | `42` | Random seed |
-| `topk` | `32` | Top-K for evaluation |
-
 ### Model Statistics
 
 | Metric | Value |
@@ -468,17 +449,11 @@ This ensures both branches produce consistent similarity distributions.
 | Trainable Parameters | 169.19M |
 | GPU Memory Usage | ~10.57 GB |
 | Training Time (MSRVTT) | 06h 27min 07s (single GPU) |
-| Inference Speed | ~30s per 1000 samples |
-
-### Running Information
-
-| Parameter | Value |
-|-----------|-------|
-| Num examples (Test) | 1,000 |
-| Num examples (Train) | 180,000 |
-| Batch size | 32 |
-| Steps per epoch | 5,625 |
-| Total training steps | 28,125 |
+| Inference Speed | ~30s per 1,000 samples |
+| Train Examples | 180,000 |
+| Test Examples | 1,000 |
+| Steps per Epoch | 5,625 |
+| Total Training Steps | 28,125 |
 
 ### Zero-shot Evaluation
 
@@ -526,38 +501,29 @@ This ensures both branches produce consistent similarity distributions.
 | DiDeMo | 8,543 | 1,045 | 42,729 | Temporal Video Grounding |
 | Charades | 12,468 | 1,841 | 53,397 | Activity Recognition |
 
-### Evaluation Metrics
-
-- **R@K**: Recall at K (K=1, 5, 10) - percentage of queries where correct match is in top-K
-- **MdR**: Median Rank - median rank of the correct match
-- **MnR**: Mean Rank - average rank of the correct match
-- **RSum**: Sum of R@1 + R@5 + R@10
-
 For detailed results on DiDeMo and Charades, please refer to our paper.
 
 ### Model Configuration
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `base_encoder` | `ViT-B/32` | CLIP backbone variant |
-| `agg_module` | `seqTransf` | Temporal aggregation module (`None` / `seqLSTM` / `seqTransf`) |
-| `num_hidden_layers` | `4` | Transformer layers in video branch |
-| `max_words` | `32` | Maximum text tokens per query |
-| `max_frames` | `12` | Maximum sampled video frames |
-| `save_frames` | `6` | Frames retained after compact (`max_frames // 2`) |
-| `sample_ratio` | `0.5` | PCM token compression ratio (per layer) |
-| `k` | `3` | KNN neighbors for DPC-KNN |
-
-### Training Hyperparameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `lr` | `1e-4` | Learning rate for non-CLIP modules |
-| `coef_lr` | `1e-3` | LR coefficient for CLIP branch |
-| `weight_decay` | `0.2` | Weight decay coefficient |
-| `warmup_proportion` | `0.1` | Warmup proportion |
-| `epochs` | `5` | Total training epochs |
-| `batch_size` | `32` | Training batch size |
+| Category | Parameter | Default | Description |
+|----------|-----------|---------|-------------|
+| Architecture | `base_encoder` | `ViT-B/32` | CLIP backbone variant |
+| Architecture | `agg_module` | `seqTransf` | Temporal aggregation module (`None` / `seqLSTM` / `seqTransf`) |
+| Architecture | `num_hidden_layers` | `4` | Transformer layers in video branch |
+| Architecture | `sample_ratio` | `0.5` | PCM token compression ratio (per layer) |
+| Architecture | `k` | `3` | KNN neighbors for DPC-KNN |
+| Input | `max_words` | `32` | Maximum text tokens per query |
+| Input | `max_frames` | `12` | Maximum sampled video frames |
+| Input | `save_frames` | `6` | Frames retained after compact (`max_frames // 2`) |
+| Training | `lr` | `1e-4` | Learning rate for non-CLIP modules |
+| Training | `coef_lr` | `1e-3` | LR coefficient for CLIP branch |
+| Training | `weight_decay` | `0.2` | Weight decay coefficient |
+| Training | `warmup_proportion` | `0.1` | Warmup proportion |
+| Training | `epochs` | `5` | Total training epochs |
+| Training | `batch_size` | `32` | Training batch size |
+| Training | `alpha` | `0.5` | High-resolution loss weight |
+| Training | `beta` | `0.1` | Low-resolution loss weight |
+| Training | `gamma` | `0.01` | KL alignment loss weight |
 
 ### Loss Function
 
@@ -604,22 +570,6 @@ After PCM Layer 3: 147 × 0.5 = 74 patches (final)
 ```
 
 This **87.5% reduction** in patch tokens significantly reduces attention computation while preserving spatial information through text-guided clustering.
-
-### Token Compression Pipeline
-
-Each PCM layer performs:
-1. **Token Convolution**: 1D convolution for local feature transformation
-2. **Importance Scoring**: Linear layer predicts per-token importance
-3. **DPC-KNN Clustering**: Density peak clustering with K-nearest neighbors
-4. **Canonical Merge**: Max-reduction merging within clusters (HV communication semantics)
-
-### Sparse vs Dense Computation
-
-The `token2map` and `map2token` functions automatically choose between sparse and dense matrix multiplication based on computational complexity:
-- **Sparse path**: When `N_init < N * H * W` (more efficient for small token counts)
-- **Dense path**: When `N_init >= N * H * W` (more efficient for large token counts)
-
-This adaptive strategy ensures optimal performance across different token configurations.
 
 ## 🎗️ Acknowledgments
 

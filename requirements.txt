@@ -1,11 +1,36 @@
-numpy==1.24.1
-opencv-python==4.9.0
-transformers==4.39.2
-decord
-pandas
-ftfy
-regex
-tqdm
-functional
-timm
-boto3
+# ============================================================
+# DUQ - Dual Uncertainty Quantification for Text-Video Retrieval
+# ============================================================
+
+# --- Core Deep Learning ---
+# Install PyTorch separately with your CUDA version, e.g.:
+#   pip install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118
+# torch
+# torchvision
+
+# --- Image & Video Processing ---
+numpy>=1.24.1
+opencv-python>=4.9.0
+Pillow>=9.0.0
+decord>=0.6.0
+scikit-image>=0.19.0
+
+# --- Text Processing ---
+ftfy>=6.1.0
+regex>=2023.0.0
+
+# --- HuggingFace / Transformers ---
+timm>=0.9.0
+
+# --- Data & Utilities ---
+pandas>=1.5.0
+tqdm>=4.60.0
+requests>=2.28.0
+boto3>=1.26.0
+
+# --- Model Profiling ---
+thop>=0.1.1
+
+# --- Preprocessing Tools ---
+ffmpeg-python>=0.2.0
+psutil>=5.9.0
