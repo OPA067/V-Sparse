@@ -178,25 +178,25 @@ This progressive compression reduces computational complexity while preserving s
   <img src="figures/framework.png" alt="V-Sparse Framework Overview" width="100%"/>
 </div>
 
-> **Figure 1: Overall Architecture.** (a) CLIP-based multi-granularity feature extraction produces sentence/word-level text features and frame/patch-level video features. (b) Video Semantic Compression (VSC): (b1) Temporal Compression selects top-N query-relevant frames via similarity scoring and merges bottom-M frames into scene-level summaries; (b2) Spatial Compression progressively merges patch tokens using DPC-KNN density peak clustering with text-guided attention.
+> **Figure 1: Overall Architecture.**
 
 <div align="center">
   <img src="figures/motivation.png" alt="Motivation Comparison" width="100%"/>
 </div>
 
-> **Figure 2: Motivation.** Comparison of retrieval results for the query *"a little girl does gymnastics"* (Query 9771). (a) X-Pool retrieves an incorrect video at frame level. (b) Clip4Clip retrieves a mismatched video at patch level. (c) V-Sparse jointly performs temporal selection and spatial clustering, successfully retrieving the correct video.
+> **Figure 2: Motivation.**
 
 <div align="center">
   <img src="figures/video_similarity.png" alt="Video Similarity Analysis" width="100%"/>
 </div>
 
-> **Figure 3: Inter-Video Similarity.** The red curve (S<sup>Related</sup><sub>Vo,Vc</sub>) shows cosine similarity between semantically related video-text pairs (~0.95). The blue curves (S<sup>Unrelated</sup><sub>Vo,Vc</sub>) decrease from ~1.00 to ~0.88–0.93, indicating the model learns to distinguish related from unrelated content over epochs.
+> **Figure 3: Inter-Video Similarity.**
 
 <div align="center">
   <img src="figures/svsc.png" alt="SVSC Compression Visualization" width="100%"/>
 </div>
 
-> **Figure 4: SVSC Compression.** Column 1: original input. Column 2: vanilla patch tokens. Columns 3–7: clustering results at compression ratios ρ = 90%, 80%, 70%, 50%, 30%. White outlines indicate cluster boundaries. Semantically meaningful regions are preserved as coherent clusters under aggressive compression.
+> **Figure 4: SVSC Compression.** 
 
 ## 🚀 Quick Start
 
